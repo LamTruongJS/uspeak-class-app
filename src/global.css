@@ -1,9 +1,70 @@
-:root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+@import 'tailwindcss';
+@import 'uniwind';
+
+/*
+ * Màu thương hiệu lấy theo class-fe (globals.css --brand-primary…) để app và web cùng một bộ nhận diện.
+ * Token đổi theo sáng/tối: dùng thẳng class `bg-background`, `text-foreground`, `bg-brand`…
+ * — KHÔNG cần viết `dark:` cho các màu này.
+ */
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: #f6f7f9;
+      --color-surface: #ffffff;
+      --color-surface-muted: #f1f2f5;
+      --color-foreground: #111827;
+      --color-muted: #6b7280;
+      --color-border: #e5e7eb;
+
+      --color-brand: #b62025;
+      --color-brand-soft: #fee2e2;
+      --color-brand-strong: #8b191e;
+      --color-on-brand: #ffffff;
+
+      --color-success: #059669;
+      --color-success-soft: #d1fae5;
+      --color-warning: #d97706;
+      --color-warning-soft: #fef3c7;
+      --color-danger: #dc2626;
+      --color-danger-soft: #fee2e2;
+      --color-info: #2563eb;
+      --color-info-soft: #dbeafe;
+      --color-violet: #7c3aed;
+      --color-violet-soft: #ede9fe;
+      /* Xanh navy thẻ bài tập / nhóm hoạt động của web (#273880) + xanh Zoom cho nút vào lớp */
+      --color-navy: #273880;
+      --color-navy-soft: #eef1ff;
+      --color-zoom: #2d8cff;
+      --color-orange: #ea580c;
+    }
+
+    @variant dark {
+      --color-background: #0b0d12;
+      --color-surface: #151821;
+      --color-surface-muted: #1d212c;
+      --color-foreground: #f3f4f6;
+      --color-muted: #9ca3af;
+      --color-border: #2a2f3a;
+
+      --color-brand: #f05b61;
+      --color-brand-soft: #47171a;
+      --color-brand-strong: #f89aa0;
+      --color-on-brand: #ffffff;
+
+      --color-success: #34d399;
+      --color-success-soft: #064e3b;
+      --color-warning: #fbbf24;
+      --color-warning-soft: #4a3510;
+      --color-danger: #f87171;
+      --color-danger-soft: #4c1414;
+      --color-info: #60a5fa;
+      --color-info-soft: #172554;
+      --color-violet: #a78bfa;
+      --color-violet-soft: #2e1065;
+      --color-navy: #579dff;
+      --color-navy-soft: #1d283f;
+      --color-zoom: #2d8cff;
+      --color-orange: #fb923c;
+    }
+  }
 }
