@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api, getErrorMessage } from '@/lib/api/client';
@@ -90,7 +91,7 @@ function useSubmitter(assignment: AssignmentDetail) {
           params: { id: assignment._id, grading: assignment.requires_grading ? '1' : '0' },
         });
       } catch (err) {
-        Alert.alert('Chưa nộp được bài', err instanceof Error && !('response' in err) ? err.message : getErrorMessage(err));
+        showToast('error', 'Chưa nộp được bài', err instanceof Error && !('response' in err) ? err.message : getErrorMessage(err));
       } finally {
         setSubmitting(false);
       }
@@ -262,7 +263,7 @@ export function ShadowingPanel({ assignment }: { assignment: AssignmentDetail })
       if (!data.url) throw new Error('Không mở được Shadowing.');
       await WebBrowser.openBrowserAsync(data.url);
     } catch (err) {
-      Alert.alert('Không mở được Shadowing', getErrorMessage(err));
+      showToast('error', 'Không mở được Shadowing', getErrorMessage(err));
     } finally {
       setOpening(false);
     }

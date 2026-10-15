@@ -9,8 +9,9 @@ import {
   type RecordingOptions,
 } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -53,14 +54,11 @@ export const SPEAKING_RECORDING: RecordingOptions = {
 export async function ensureMicPermission(): Promise<boolean> {
   const res = await requestRecordingPermissionsAsync();
   if (res.granted) return true;
-  Alert.alert(
-    'Chưa có quyền micro',
-    'Bài có câu luyện nói nên cần micro. Vào Cài đặt → Uspeak Class → bật Micro rồi quay lại.',
-    [
-      { text: 'Để sau', style: 'cancel' },
-      { text: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
-    ],
-  );
+  // Hàm thường (không phải component) nên không dùng được bảng chọn — toast có nút là vừa đủ.
+  showToast('warning', 'Chưa có quyền micro', 'Bài có câu luyện nói nên cần micro. Bật Micro cho Uspeak Class rồi quay lại.', {
+    duration: 6000,
+    action: { label: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
+  });
   return false;
 }
 
@@ -97,7 +95,7 @@ export function SpeakingRecorder({ state, savedUrl, disabled, busyElsewhere, onR
       recorder.record();
       onRecordingChange?.(true);
     } catch (err) {
-      Alert.alert('Không mở được micro', err instanceof Error ? err.message : 'Vui lòng thử lại.');
+      showToast('error', 'Không mở được micro', err instanceof Error ? err.message : 'Vui lòng thử lại.');
     } finally {
       setStarting(false);
     }

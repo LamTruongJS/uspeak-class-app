@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { StateView } from '@/components/ui/state-view';
 import { chatApi, useChatRooms, useDmEligibleUsers, useMyPermissionCodes, type DmUser } from '@/features/chat/api';
@@ -87,7 +88,7 @@ export default function NewDirectScreen() {
       void rooms.refetch();
       router.replace({ pathname: '/chat/[roomId]', params: { roomId: dm._id } });
     } catch (err) {
-      Alert.alert('Không mở được cuộc trò chuyện', getErrorMessage(err));
+      showToast('error', 'Không mở được cuộc trò chuyện', getErrorMessage(err));
     } finally {
       setOpening(null);
     }

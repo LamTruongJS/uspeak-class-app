@@ -18,6 +18,8 @@ interface AuthState {
   bootstrap: () => Promise<void>;
   /** Gọi sau khi /auth/login (hoặc google, switch-role) trả về thành công. */
   completeLogin: (result: LoginSuccess) => Promise<void>;
+  /** Lấy lại hồ sơ đầy đủ từ /auth/profile (im lặng — hỏng thì giữ nguyên hồ sơ đang có). */
+  refreshProfile: () => Promise<void>;
   setUser: (user: User) => void;
   logout: () => Promise<void>;
 }
@@ -55,9 +57,27 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   completeLogin: async (result) => {
     await tokenStorage.set(result.tokens);
-    await cacheUser(result.data);
     queryClient.clear(); // không để dữ liệu của tài khoản/vai trò trước lọt sang
-    set({ status: 'signedIn', user: result.data });
+    // CRM CHỈ gắn `available_roles` vào /auth/profile; đáp án của login và switch-role không có.
+    // Ghi đè thẳng result.data là mất danh sách vai trò → đổi sang Học viên xong không còn chỗ
+    // đổi ngược lại (lỗi 15/10/2026). Giữ tạm danh sách cũ rồi xin hồ sơ đầy đủ ngay sau đó.
+    const prev = get().user;
+    const user = result.data.available_roles?.length
+      ? result.data
+      : { ...result.data, available_roles: prev?.available_roles };
+    await cacheUser(user);
+    set({ status: 'signedIn', user });
+    void get().refreshProfile();
+  },
+
+  refreshProfile: async () => {
+    try {
+      const user = await authApi.getProfile();
+      await cacheUser(user);
+      set({ user });
+    } catch {
+      // Mất mạng / lỗi tạm thời: giữ hồ sơ đang có, 401 đã có interceptor lo
+    }
   },
 
   setUser: (user) => {

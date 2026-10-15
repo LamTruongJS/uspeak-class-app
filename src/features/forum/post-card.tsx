@@ -59,19 +59,19 @@ export const ForumPostCard = memo(function ForumPostCard({
   const total = reactionTotal(post.reaction_summary);
 
   return (
-    <View className="gap-3 rounded-2xl border border-border bg-surface p-3.5">
+    <View className="gap-3 rounded-3xl bg-surface p-4">
       <View className="flex-row items-center gap-2.5">
         <Avatar
           name={post.author?.full_name}
           uri={resolveMediaUrl(post.author?.avatar_url, media?.media_token)}
           cacheKey={mediaCacheKey(post.author?.avatar_url)}
-          size={38}
+          size={42}
         />
         <View className="flex-1">
-          <Text className="text-[14px] font-bold text-foreground" numberOfLines={1}>
+          <Text className="text-[15px] font-bold text-foreground" numberOfLines={1}>
             {post.author?.full_name || 'Người dùng Uspeak'}
           </Text>
-          <Text className="text-[11px] text-muted">
+          <Text className="text-[12px] text-muted">
             {ROLE_LABEL[post.author?.role ?? ''] ?? post.author?.role ?? ''} · {roomTime(post.createdAt)}
             {post.is_edited ? ' · đã sửa' : ''}
           </Text>
@@ -119,26 +119,34 @@ export const ForumPostCard = memo(function ForumPostCard({
 
       {picking ? <ReactionBar current={post.my_reaction} onPick={(emoji) => { setPicking(false); onReact(emoji); }} /> : null}
 
-      <View className="flex-row items-center gap-3 border-t border-border pt-2.5">
+      {total > 0 || post.comment_count > 0 ? (
+        <View className="flex-row items-center justify-between">
+          <Text className="text-[13px] text-muted">{total > 0 ? `${topReactions(post.reaction_summary).join('')} ${total}` : ''}</Text>
+          {post.comment_count > 0 ? (
+            <Pressable onPress={onOpen} hitSlop={6}>
+              <Text className="text-[13px] text-muted">{post.comment_count} bình luận</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View className="-mx-1 flex-row border-t border-border pt-1">
         <Pressable
           onPress={() => (post.my_reaction ? onReact(post.my_reaction) : setPicking((v) => !v))}
           onLongPress={() => setPicking(true)}
-          className="flex-row items-center gap-1.5 active:opacity-70">
+          className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl active:bg-surface-muted">
           {post.my_reaction ? (
-            <Text className="text-[16px]">{post.my_reaction}</Text>
+            <Text className="text-[17px]">{post.my_reaction}</Text>
           ) : (
-            <Ionicons name="heart-outline" size={18} color={muted} />
+            <Ionicons name="heart-outline" size={19} color={muted} />
           )}
-          <Text className={`text-[13px] font-semibold ${post.my_reaction ? 'text-brand' : 'text-muted'}`}>
-            {total > 0 ? `${topReactions(post.reaction_summary).join('')} ${total}` : 'Cảm xúc'}
+          <Text className={`text-[13.5px] font-semibold ${post.my_reaction ? 'text-brand' : 'text-muted'}`}>
+            {post.my_reaction ? 'Đã bày tỏ' : 'Cảm xúc'}
           </Text>
         </Pressable>
-
-        <Pressable onPress={onOpen} className="flex-row items-center gap-1.5 active:opacity-70">
-          <Ionicons name="chatbubble-outline" size={17} color={muted} />
-          <Text className="text-[13px] font-semibold text-muted">
-            {post.comment_count > 0 ? `${post.comment_count} bình luận` : 'Bình luận'}
-          </Text>
+        <Pressable onPress={onOpen} className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl active:bg-surface-muted">
+          <Ionicons name="chatbubble-outline" size={18} color={muted} />
+          <Text className="text-[13.5px] font-semibold text-muted">Bình luận</Text>
         </Pressable>
       </View>
 

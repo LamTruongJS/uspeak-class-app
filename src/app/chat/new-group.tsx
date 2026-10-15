@@ -3,9 +3,10 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
@@ -78,7 +79,7 @@ export default function NewGroupScreen() {
       await queryClient.invalidateQueries({ queryKey: chatKeys.rooms });
       router.replace({ pathname: '/chat/[roomId]', params: { roomId: room._id } });
     } catch (err) {
-      Alert.alert('Chưa tạo được nhóm', getErrorMessage(err));
+      showToast('error', 'Chưa tạo được nhóm', getErrorMessage(err));
     } finally {
       setCreating(false);
     }

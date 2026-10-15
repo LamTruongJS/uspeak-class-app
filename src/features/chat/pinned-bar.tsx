@@ -34,11 +34,13 @@ export function PinnedBar({ roomId, onJump }: { roomId: string; onJump: (message
 
   return (
     <>
+      {/* Một dòng thôi: hai dòng (nhãn + nội dung) ăn mất chỗ của tin nhắn, mà nội dung ghim hay là
+          một cái link dài nên dòng thứ hai cũng chỉ hiện được vài chữ rồi "…" */}
       <View className="flex-row items-center gap-2 border-b border-border bg-surface px-3 py-2">
-        <Ionicons name="pin" size={16} color={brand} />
-        <Pressable className="flex-1 active:opacity-70" onPress={() => onJump(top._id)}>
-          <Text className="text-xs font-semibold text-brand">Tin đã ghim{data.length > 1 ? ` (${data.length})` : ''}</Text>
-          <Text className="text-sm text-foreground" numberOfLines={1}>
+        <Ionicons name="pin" size={15} color={brand} />
+        <Pressable className="flex-1 flex-row items-center gap-1.5 active:opacity-70" onPress={() => onJump(top._id)}>
+          <Text className="text-[12.5px] font-semibold text-brand">Đã ghim{data.length > 1 ? ` (${data.length})` : ''}</Text>
+          <Text className="flex-1 text-[13px] text-muted" numberOfLines={1}>
             {preview(top)}
           </Text>
         </Pressable>

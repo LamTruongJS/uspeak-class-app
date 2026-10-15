@@ -81,3 +81,54 @@ export function useSubmitPaymentRequest() {
     },
   });
 }
+
+/**
+ * Ngưỡng tối thiểu (số bài chưa thanh toán) để được gửi yêu cầu — `payment_threshold` của cấu hình XP
+ * (GET /xp/config, web dùng `useXpConfig`). class-be cũng chặn lại khi gửi, đây chỉ để hiện tiến độ.
+ */
+export function usePaymentThreshold() {
+  return useQuery({
+    queryKey: ['payment', 'threshold'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => Number((await api.get<{ data: { payment_threshold?: number } }>('/xp/config')).data.data?.payment_threshold ?? 0),
+  });
+}
+
+export type SubmissionPaymentStatus = 'paid' | 'requested' | 'unrequested';
+
+export interface GradedSubmissionPayment {
+  _id: string;
+  assignment?: {
+    title?: string;
+    session_number?: string;
+    group_name?: string;
+    class?: { class_code?: string; class_name?: string } | null;
+  };
+  student?: { name?: string; avatar_url?: string | null } | null;
+  submitted_at?: string;
+  graded_at?: string;
+  rate_at_grading?: number;
+  grading_time_seconds?: number;
+  payment_request_status: SubmissionPaymentStatus;
+}
+
+export const SUBMISSION_PAYMENT_VIEW: Record<SubmissionPaymentStatus, { label: string; tone: BadgeTone }> = {
+  paid: { label: 'Đã thanh toán', tone: 'success' },
+  requested: { label: 'Đang yêu cầu', tone: 'info' },
+  unrequested: { label: 'Chưa yêu cầu', tone: 'neutral' },
+};
+
+/** Từng bài đã chấm + trạng thái thanh toán của bài (tab "Danh sách bài đã chấm" của web). */
+export function useMyGradedSubmissions(enabled: boolean) {
+  return useQuery({
+    queryKey: ['payment', 'my-submissions'],
+    enabled,
+    queryFn: async () =>
+      (
+        await api.get<{
+          data: GradedSubmissionPayment[];
+          summary: { total_graded: number; paid_total: number; in_request_total: number; unrequested_total: number };
+        }>('/payment-settings/payment-requests/my-submissions')
+      ).data,
+  });
+}

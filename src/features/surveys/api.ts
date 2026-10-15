@@ -107,3 +107,16 @@ export function useReviewInputSurvey(id: string) {
 export function surveyPublicUrl(webUrl: string, token: string) {
   return `${webUrl}/phieu-khao-sat?user=${token}`;
 }
+
+export function useDeleteInputSurvey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/input-surveys/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['input-surveys'] }),
+  });
+}
+
+/** Lời nhắn kèm link khi chia sẻ phiếu qua Zalo / Messenger… */
+export function surveyShareMessage(webUrl: string, s: Pick<InputSurvey, 'student_name' | 'public_token'>) {
+  return `Chào ${s.student_name}, Uspeak gửi bạn phiếu khảo sát đầu vào — bạn điền thông tin và nộp video giới thiệu tại link này nhé:\n${surveyPublicUrl(webUrl, s.public_token)}`;
+}

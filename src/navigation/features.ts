@@ -110,7 +110,7 @@ export const FEATURES: AppFeature[] = [
 
   // ── Tài khoản ───────────────────────────────────────────────────────
   { key: 'account', label: 'Thông tin tài khoản', icon: 'person-circle-outline', group: 'account', roles: ALL, phase: 1, status: 'ready', route: '/account' },
-  { key: 'policies', label: 'Điều khoản & chính sách', icon: 'document-lock-outline', group: 'account', roles: ALL, phase: 1, status: 'web', webPath: '/policies' },
+  { key: 'policies', label: 'Điều khoản & chính sách', icon: 'document-lock-outline', group: 'account', roles: ALL, phase: 1, status: 'ready', route: '/policies' },
 ];
 
 export function featuresForRole(role: RoleCode | undefined): AppFeature[] {

@@ -1,12 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useMemo, useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
+import { dashboardHeaderBackground } from '@/constants/dashboard-backgrounds';
+import { STUDENT_DASHBOARD_3D_ICONS } from '@/constants/three-d-icons';
 import { mediaCacheKey, useMediaUrl } from '@/lib/media';
 import { StateView } from '@/components/ui/state-view';
 import { useAllMyAssignments, type StudentAssignmentItem } from '@/features/assignments/api';
+import { assignmentKind } from '@/features/assignments/assignment-card';
 import { openAssignment } from '@/features/assignments/detail-api';
 import { useMyClasses, type StudentClassItem } from '@/features/classes/api';
 import { useJoinRoom } from '@/features/classes/use-join-room';
@@ -57,6 +62,9 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
   const avatarUri = useMediaUrl(user?.avatar);
   const brand = useThemeColor('brand');
   const [now] = useState(() => Date.now());
+  // Lời chào theo giờ — chốt lúc mở màn, React Compiler cấm gọi Date trong render
+  const [hour] = useState(() => new Date().getHours());
+  const greeting = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
   const classesList = data.classes.data;
   const assignmentsList = data.assignments.data;
 
@@ -114,38 +122,75 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
 
   const m = view.metrics;
   const upcoming = nextClass(data.schedule.data?.upcomingClasses, view.classes);
+  // Dùng thời điểm mount làm seed: mỗi lần mở mới sẽ có banner khác nhưng không nhấp nháy khi re-render.
+  const headerBackground = dashboardHeaderBackground(`${user?._id ?? 'student'}-${now}`);
 
   return (
     <View className="gap-4">
       {/* ── Hồ sơ ── */}
-      <View className="flex-row items-center gap-3">
-        <View className="rounded-full border-4 border-brand-soft">
-          <Avatar name={user?.name} uri={avatarUri} cacheKey={mediaCacheKey(user?.avatar)} size={52} />
+      <View className="h-52 overflow-hidden rounded-3xl bg-brand-soft">
+        <Image
+          source={headerBackground}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, top: 0 }}
+          contentFit="cover"
+          transition={250}
+          accessible={false}
+        />
+        <View className="absolute inset-0 bg-black/15" />
+
+        <View className="absolute left-4 top-4 flex-row items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3 py-1.5">
+          <Ionicons name="sparkles" size={12} color="#ffffff" />
+          <Text className="text-[10px] font-extrabold uppercase tracking-wider text-white">Hành trình học tập</Text>
         </View>
-        <View className="flex-1 gap-1.5">
-          <Text className="text-xl font-extrabold text-foreground" numberOfLines={1}>
-            {user?.name || 'Học viên'}
-          </Text>
-          <View className="flex-row flex-wrap gap-1.5">
-            <Pill icon="book" label={`${view.learningCount} lớp đang học`} solid />
-            <Pill icon="checkmark-circle" label={`${view.completedCount} lớp hoàn thành`} />
+
+        <View className="absolute bottom-4 left-4 right-4 flex-row items-end gap-3">
+          <View className="rounded-full border-[3px] border-white bg-white/20">
+            <Avatar name={user?.name} uri={avatarUri} cacheKey={mediaCacheKey(user?.avatar)} size={58} />
+          </View>
+          <View className="min-w-0 flex-1 gap-1.5">
+            <View>
+              <Text className="text-[12px] font-medium text-white/80">{greeting} 👋</Text>
+              <Text className="text-[22px] font-extrabold leading-7 text-white" numberOfLines={1}>
+                {user?.name || 'Học viên'}
+              </Text>
+            </View>
+            <View className="flex-row flex-wrap gap-1.5">
+              <Pill icon="book" label={`${view.learningCount} lớp đang học`} solid />
+              <Pill icon="checkmark-circle" label={`${view.completedCount} lớp hoàn thành`} />
+            </View>
           </View>
         </View>
       </View>
+
+      {/* ── Danh mục ── */}
+      {shortcuts}
 
       <NextClassCard upcoming={upcoming} />
 
       {/* ── KPI 2×2 ── */}
       <View className="flex-row flex-wrap justify-between gap-y-3">
-        <Kpi label="Tổng số lớp" value={String(view.classes.length).padStart(2, '0')} subtitle="Hành trình học tập" accent />
         <Kpi
+          icon3d={STUDENT_DASHBOARD_3D_ICONS.classes}
+          label="Tổng số lớp"
+          value={String(view.classes.length).padStart(2, '0')}
+          subtitle="Hành trình học tập"
+          accent
+        />
+        <Kpi
+          icon3d={STUDENT_DASHBOARD_3D_ICONS.attendance}
           label="Chuyên cần TB"
           value={m.attendanceRate !== null ? `${m.attendanceRate}%` : '—'}
           subtitle={m.totalSessions > 0 ? `${m.attendedSessions}/${m.totalSessions} buổi hiện tại` : 'Chưa có dữ liệu điểm danh'}
           progress={m.attendanceRate ?? 0}
         />
-        <Kpi label="Điểm trung bình" value={formatScore(view.averageScore)} subtitle={`Xếp loại: ${gradeLabel(view.averageScore)}`} />
         <Kpi
+          icon3d={STUDENT_DASHBOARD_3D_ICONS.averageScore}
+          label="Điểm trung bình"
+          value={formatScore(view.averageScore)}
+          subtitle={`Xếp loại: ${gradeLabel(view.averageScore)}`}
+        />
+        <Kpi
+          icon3d={STUDENT_DASHBOARD_3D_ICONS.learningIndex}
           label="Chỉ số học tập"
           value={`${m.learningIndex}%`}
           subtitle={`BT ${m.assignmentCompleted}/${m.assignmentTotal} • ${m.totalSessions > 0 ? `Đi học ${m.attendedSessions}/${m.totalSessions}` : 'Chưa có điểm danh'}`}
@@ -154,24 +199,23 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
         />
       </View>
 
-      {shortcuts}
-
       {/* ── Cảnh báo ── */}
-      <Card title="Cảnh báo & Lưu ý" icon="warning" iconTone="danger">
+      <Card title="Cảnh báo & Lưu ý" icon3d={STUDENT_DASHBOARD_3D_ICONS.warning}>
         <View className="gap-2.5">
           {view.topRisk ? (
             <AlertRow
               danger
+              icon3d={STUDENT_DASHBOARD_3D_ICONS.warning}
               title={view.topRisk.level === 'high' ? 'Lớp nguy cơ cao' : 'Lớp cần chú ý'}
               text={`Lớp ${view.topRisk.className} có ${view.topRisk.reasons.join(', ')}.`}
               onPress={() => router.push({ pathname: '/class/[id]', params: { id: view.topRisk!.classId } })}
             />
           ) : (
-            <AlertRow icon="shield-checkmark-outline" title="Lớp nguy cơ cao" text="Chưa có lớp nào có dấu hiệu rủi ro." />
+            <AlertRow icon3d={STUDENT_DASHBOARD_3D_ICONS.safe} title="Lớp nguy cơ cao" text="Chưa có lớp nào có dấu hiệu rủi ro." />
           )}
           <AlertRow
             danger={view.overdue.length > 0}
-            icon="clipboard-outline"
+            icon3d={STUDENT_DASHBOARD_3D_ICONS.overdue}
             title="Bài tập quá hạn"
             text={view.overdue.length > 0 ? `Bạn có ${view.overdue.length} bài tập đang quá hạn.` : 'Không có bài tập quá hạn.'}
             onPress={view.overdue.length > 0 ? () => router.navigate('/assignments') : undefined}
@@ -182,6 +226,7 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
       {/* ── Bài tập cần làm ── */}
       <Card
         title="Bài tập cần làm"
+        icon3d={STUDENT_DASHBOARD_3D_ICONS.assignments}
         right={
           <View className="rounded-full bg-brand px-2.5 py-1">
             <Text className="text-[11px] font-bold text-on-brand">{view.due.length} bài</Text>
@@ -210,10 +255,16 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
         ) : (
           <View className="gap-3">
             {view.groups.map((g) => (
-              <View key={g.key} className="gap-2">
-                <Text className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-on-brand">
-                  {g.title}
-                </Text>
+              <View key={g.key} className="gap-2.5">
+                <View className="flex-row items-center gap-2 rounded-xl bg-brand-soft px-3 py-2">
+                  <View className="h-7 w-7 items-center justify-center rounded-lg bg-surface">
+                    <Ionicons name={g.key === 'online' ? 'videocam' : 'laptop-outline'} size={15} color={brand} />
+                  </View>
+                  <Text className="flex-1 text-[11px] font-extrabold uppercase tracking-wider text-brand">{g.title}</Text>
+                  <View className="rounded-full bg-surface px-2 py-0.5">
+                    <Text className="text-[10px] font-bold text-brand">{g.classes.length} lớp</Text>
+                  </View>
+                </View>
                 {g.classes.map((c) => (
                   <CompareRow key={c._id} cls={c} assignments={view.assignments} />
                 ))}
@@ -270,7 +321,7 @@ function NextClassCard({ upcoming }: { upcoming: ReturnType<typeof nextClass> })
   const enter = () => {
     if (cls?.class_code) {
       if (cls.access_locked) {
-        Alert.alert('Lớp đang bị khoá', cls.access_lock_reason || 'Vui lòng liên hệ Uspeak để được hỗ trợ.');
+        showToast('warning', 'Lớp đang bị khoá', cls.access_lock_reason || 'Vui lòng liên hệ Uspeak để được hỗ trợ.');
         return;
       }
       void join(cls.class_code, item?.zoom_link);
@@ -316,12 +367,14 @@ function Pill({ icon, label, solid }: { icon: IconName; label: string; solid?: b
 }
 
 function Kpi({
+  icon3d,
   label,
   value,
   subtitle,
   progress,
   accent,
 }: {
+  icon3d?: number;
   label: string;
   value: string;
   subtitle: string;
@@ -330,9 +383,12 @@ function Kpi({
 }) {
   return (
     <View className={`w-[48.5%] rounded-2xl border bg-surface p-3.5 ${accent ? 'border-brand-soft' : 'border-border'}`}>
-      <Text className="mb-1 text-[10px] font-extrabold uppercase tracking-wider text-muted" numberOfLines={1}>
-        {label}
-      </Text>
+      <View className="mb-1 flex-row items-start justify-between gap-2">
+        <Text className="flex-1 text-[10px] font-extrabold uppercase tracking-wider text-muted" numberOfLines={1}>
+          {label}
+        </Text>
+        {icon3d ? <Image source={icon3d} style={{ width: 32, height: 32 }} contentFit="contain" accessible={false} /> : null}
+      </View>
       <Text className={`text-[28px] font-extrabold leading-8 ${accent ? 'text-brand' : 'text-foreground'}`}>{value}</Text>
       {typeof progress === 'number' ? (
         <View className="mt-2.5">
@@ -358,6 +414,7 @@ export function Card({
   title,
   subtitle,
   icon,
+  icon3d,
   iconTone = 'brand',
   right,
   children,
@@ -365,6 +422,7 @@ export function Card({
   title: string;
   subtitle?: string;
   icon?: IconName;
+  icon3d?: number;
   iconTone?: 'brand' | 'danger';
   right?: ReactNode;
   children: ReactNode;
@@ -373,7 +431,11 @@ export function Card({
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <View className="mb-3 flex-row items-center gap-2">
-        {icon ? <Ionicons name={icon} size={18} color={color} /> : null}
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 24, height: 24 }} contentFit="contain" accessible={false} />
+        ) : icon ? (
+          <Ionicons name={icon} size={18} color={color} />
+        ) : null}
         <View className="flex-1">
           <Text className="text-base font-bold text-foreground">{title}</Text>
           {subtitle ? <Text className="text-xs text-muted">{subtitle}</Text> : null}
@@ -390,12 +452,14 @@ function AlertRow({
   text,
   danger,
   icon,
+  icon3d,
   onPress,
 }: {
   title: string;
   text: string;
   danger?: boolean;
   icon?: IconName;
+  icon3d?: number;
   onPress?: () => void;
 }) {
   const dangerColor = useThemeColor('danger');
@@ -405,7 +469,13 @@ function AlertRow({
       disabled={!onPress}
       onPress={onPress}
       className={`flex-row gap-3 rounded-xl border p-3 active:opacity-70 ${danger ? 'border-danger-soft bg-danger-soft' : 'border-border bg-surface-muted'}`}>
-      <Ionicons name={danger ? 'warning' : (icon ?? 'information-circle-outline')} size={17} color={danger ? dangerColor : muted} />
+      <View className="h-8 w-8 items-center justify-center">
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 32, height: 32 }} contentFit="contain" accessible={false} />
+        ) : (
+          <Ionicons name={danger ? 'warning' : (icon ?? 'information-circle-outline')} size={17} color={danger ? dangerColor : muted} />
+        )}
+      </View>
       <View className="flex-1">
         <Text className={`text-sm font-bold ${danger ? 'text-danger' : 'text-foreground'}`}>{title}</Text>
         <Text className="mt-0.5 text-xs leading-4 text-muted">{text}</Text>
@@ -416,22 +486,20 @@ function AlertRow({
 }
 
 function DueRow({ item, now }: { item: StudentAssignmentItem; now: number }) {
-  const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
-  const code = item.assignment_type?.code || '';
-  const icon: IconName =
-    code.includes('listening') || code.includes('audio')
-      ? 'headset-outline'
-      : code.includes('writing') || code.includes('essay')
-        ? 'create-outline'
-        : 'document-text-outline';
+  const kind = assignmentKind(item);
+  const tint = useThemeColor(kind.color);
   const deadline = formatDeadline(item.submission_deadline, now);
   return (
     <Pressable
       onPress={() => openAssignment(item)}
       className="flex-row items-center gap-3 rounded-xl border border-brand-soft p-3 active:opacity-70">
-      <View className="h-10 w-10 items-center justify-center rounded-lg bg-info-soft">
-        <Ionicons name={icon} size={18} color={brand} />
+      <View className={`h-10 w-10 items-center justify-center overflow-hidden rounded-lg ${kind.icon3d ? '' : kind.box}`}>
+        {kind.icon3d ? (
+          <Image source={kind.icon3d} style={{ width: 40, height: 40 }} contentFit="contain" accessible={false} />
+        ) : (
+          <Ionicons name={kind.icon} size={18} color={tint} />
+        )}
       </View>
       <View className="flex-1">
         <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
@@ -451,37 +519,73 @@ function CompareRow({ cls, assignments }: { cls: StudentClassItem; assignments: 
   const progress = Math.round(Math.min(Math.max(cls.progress || 0, 0), 100));
   const avg = average(assignments.filter((a) => a.class_id === cls._id).map(assignmentScore10));
   const debt = isDirectTuitionClass(cls) ? Number(cls.remaining_debt || 0) : 0;
+  const teacherAvatarUri = useMediaUrl(cls.teacher?.avatar);
+  const muted = useThemeColor('muted');
+  const brand = useThemeColor('brand');
+  const success = useThemeColor('success');
+  const warning = useThemeColor('warning');
+  const danger = useThemeColor('danger');
+  const progressTone = done || progress >= 80 ? { bar: 'bg-success', text: 'text-success' } : progress >= 50 ? { bar: 'bg-info', text: 'text-info' } : progress > 0 ? { bar: 'bg-warning', text: 'text-warning' } : { bar: 'bg-border', text: 'text-muted' };
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/class/[id]', params: { id: cls._id } })}
-      className="rounded-xl border border-border p-3 active:opacity-70">
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1">
-          <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
+      accessibilityRole="button"
+      accessibilityLabel={`Mở lớp ${classDisplayName(cls)}`}
+      className="rounded-2xl border border-border bg-surface p-3.5 active:bg-surface-muted">
+      <View className="flex-row items-start gap-3">
+        <Avatar
+          name={cls.teacher?.name || classDisplayName(cls)}
+          uri={teacherAvatarUri}
+          cacheKey={mediaCacheKey(cls.teacher?.avatar)}
+          size={38}
+        />
+        <View className="min-w-0 flex-1 gap-1">
+          <Text className="text-[15px] font-bold leading-5 text-foreground" numberOfLines={2}>
             {classDisplayName(cls)}
           </Text>
-          <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
-            GV: {cls.teacher?.name || 'Đang cập nhật'}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="person-outline" size={12} color={muted} />
+            <Text className="flex-1 text-xs text-muted" numberOfLines={1}>
+              {cls.teacher?.name || 'Đang cập nhật giáo viên'}
+            </Text>
+          </View>
         </View>
-        <View className={`rounded-full px-2 py-0.5 ${done ? 'bg-info-soft' : 'bg-brand-soft'}`}>
-          <Text className={`text-[10px] font-semibold ${done ? 'text-info' : 'text-brand'}`}>{done ? 'Hoàn thành' : 'Đang học'}</Text>
+        <View className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${done ? 'bg-success-soft' : 'bg-brand-soft'}`}>
+          <Ionicons name={done ? 'checkmark-circle' : 'play-circle'} size={12} color={done ? success : brand} />
+          <Text className={`text-[10px] font-bold ${done ? 'text-success' : 'text-brand'}`}>{done ? 'Hoàn thành' : 'Đang học'}</Text>
         </View>
       </View>
-      <View className="mt-3 flex-row items-center gap-2">
-        <View className="flex-1">
-          <Bar value={progress} fill={done ? 'bg-info' : 'bg-brand'} />
+
+      <View className="mt-3.5 gap-1.5">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-[11px] font-semibold text-muted">Tiến độ khóa học</Text>
+          <Text className={`text-xs font-extrabold ${progressTone.text}`}>{progress}%</Text>
         </View>
-        <Text className="w-9 text-right text-[11px] font-bold text-muted">{progress}%</Text>
+        <View className="h-2 overflow-hidden rounded-full bg-surface-muted">
+          <View className={`h-full rounded-full ${progressTone.bar}`} style={{ width: `${progress}%` }} />
+        </View>
       </View>
-      <View className="mt-3 flex-row justify-between border-t border-border pt-2.5">
-        <Text className="text-xs text-muted">
-          Điểm TB <Text className="font-bold text-foreground">{formatScore(avg)}</Text>
-        </Text>
-        <Text className="text-xs text-muted">
-          Học phí{' '}
-          <Text className={`font-bold ${debt > 0 ? 'text-danger' : 'text-foreground'}`}>{debt > 0 ? formatMoney(debt, true) : '0'}</Text>
-        </Text>
+
+      <View className="mt-3 flex-row items-center rounded-xl bg-surface-muted px-3 py-2.5">
+        <View className="flex-1 flex-row items-center gap-2">
+          <View className="h-7 w-7 items-center justify-center rounded-lg bg-warning-soft">
+            <Ionicons name="star" size={14} color={warning} />
+          </View>
+          <View>
+            <Text className="text-[10px] text-muted">Điểm trung bình</Text>
+            <Text className="text-[13px] font-extrabold text-foreground">{formatScore(avg)}</Text>
+          </View>
+        </View>
+        <View className="mx-2 h-8 w-px bg-border" />
+        <View className="flex-1 flex-row items-center justify-end gap-2">
+          <View className={`h-7 w-7 items-center justify-center rounded-lg ${debt > 0 ? 'bg-danger-soft' : 'bg-success-soft'}`}>
+            <Ionicons name="wallet-outline" size={14} color={debt > 0 ? danger : success} />
+          </View>
+          <View className="items-end">
+            <Text className="text-[10px] text-muted">Học phí</Text>
+            <Text className={`text-[13px] font-extrabold ${debt > 0 ? 'text-danger' : 'text-success'}`}>{formatMoney(debt, true)}</Text>
+          </View>
+        </View>
       </View>
     </Pressable>
   );

@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useMemo, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { scheduleParts } from '@/features/classes/next-session';
 import { api, getErrorMessage } from '@/lib/api/client';
@@ -167,6 +169,7 @@ export default function ProRegisterScreen() {
   /** classId → mã gói (đăng ký gửi theo từng gói) */
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const sheet = useActionSheet();
 
   const query = useQuery({
     queryKey: ['combo', 'my-combo-classes'],
@@ -207,10 +210,7 @@ export default function ProRegisterScreen() {
     }
     const g = combo.classToGroup.get(c._id);
     if (g !== undefined && usedIn(combo, g) >= combo.groups[g].max_selections) {
-      Alert.alert(
-        'Đã đủ lượt chọn',
-        `Khoá ${c.course_name} chỉ được chọn ${combo.groups[g].max_selections} lớp. Bỏ chọn một lớp khác (hoặc huỷ lớp đã đăng ký) rồi chọn lại nhé.`,
-      );
+      showToast('success', 'Đã đủ lượt chọn', `Khoá ${c.course_name} chỉ được chọn ${combo.groups[g].max_selections} lớp. Bỏ chọn một lớp khác (hoặc huỷ lớp đã đăng ký) rồi chọn lại nhé.`);
       return;
     }
     setPicked((p) => ({ ...p, [c._id]: combo.code }));
@@ -221,14 +221,14 @@ export default function ProRegisterScreen() {
     const mine = combos.flatMap((c) => c.classes.filter((x) => x.registered));
     const warn = scheduleWarning([...mine, ...list]);
     const lines = list.map((c) => `• ${c.course_name} – ${c.class_code}${c.class_time ? ` (${c.class_time})` : ''}`).join('\n');
-    Alert.alert(
-      `Đăng ký ${list.length} lớp?`,
-      `${lines}${warn ? `\n\n⚠️ ${warn}` : ''}\n\nLớp nằm trong gói UspeakPro nên không mất thêm phí.`,
-      [
-        { text: 'Xem lại', style: 'cancel' },
-        { text: 'Đăng ký', onPress: () => void submit() },
-      ],
-    );
+    sheet.confirm({
+      title: `Đăng ký ${list.length} lớp?`,
+      message: `${lines}${warn ? `\n\n⚠️ ${warn}` : ''}\n\nLớp nằm trong gói UspeakPro nên không mất thêm phí.`,
+      label: 'Đăng ký',
+      icon: 'checkmark-circle-outline',
+      danger: false,
+      onConfirm: () => void submit(),
+    });
   }
 
   async function submit() {
@@ -238,30 +238,29 @@ export default function ProRegisterScreen() {
       for (const [classCode, ids] of byCombo) await register.mutateAsync({ classCode, selectedClassIds: ids });
       setPicked({});
       setTab('mine');
-      Alert.alert('Đăng ký thành công', 'Lớp đã chuyển sang mục "Đã đăng ký". Trung tâm sẽ xác nhận và xếp bạn vào lớp.');
+      showToast('success', 'Đăng ký thành công', 'Lớp đã chuyển sang mục "Đã đăng ký". Trung tâm sẽ xác nhận và xếp bạn vào lớp.');
     } catch (err) {
-      Alert.alert('Đăng ký chưa thành công', getErrorMessage(err));
+      showToast('error', 'Đăng ký chưa thành công', getErrorMessage(err));
     }
   }
 
   function confirmCancel(combo: Combo, c: GrantedClass) {
-    Alert.alert('Huỷ đăng ký lớp này?', `${c.course_name} – ${c.class_code}\nLượt chọn sẽ được trả lại để bạn chọn lớp khác.`, [
-      { text: 'Không', style: 'cancel' },
-      {
-        text: 'Huỷ đăng ký',
-        style: 'destructive',
-        onPress: async () => {
-          setCancelling(c._id);
-          try {
-            await cancel.mutateAsync({ classCode: combo.code, classId: c._id });
-          } catch (err) {
-            Alert.alert('Chưa huỷ được', getErrorMessage(err));
-          } finally {
-            setCancelling(null);
-          }
-        },
+    sheet.confirm({
+      title: 'Huỷ đăng ký lớp này?',
+      message: `${c.course_name} – ${c.class_code}\nLượt chọn sẽ được trả lại để bạn chọn lớp khác.`,
+      label: 'Huỷ đăng ký',
+      icon: 'close-circle-outline',
+      onConfirm: async () => {
+        setCancelling(c._id);
+        try {
+          await cancel.mutateAsync({ classCode: combo.code, classId: c._id });
+        } catch (err) {
+          showToast('error', 'Chưa huỷ được', getErrorMessage(err));
+        } finally {
+          setCancelling(null);
+        }
       },
-    ]);
+    });
   }
 
   const registeredCount = combos.reduce((n, c) => n + c.classes.filter((x) => x.registered).length, 0);
@@ -368,6 +367,7 @@ export default function ProRegisterScreen() {
           ) : null}
         </>
       )}
+      {sheet.sheet}
     </View>
   );
 }

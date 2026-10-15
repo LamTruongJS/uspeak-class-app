@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Toaster } from '@/components/ui/toast';
 import { ChatSocketBridge } from '@/features/chat/socket';
 import { PushBridge } from '@/features/push/push';
 import { queryClient } from '@/lib/query-client';
@@ -79,6 +80,8 @@ export default function RootLayout() {
               <Stack.Screen name="login" options={{ headerShown: false }} />
             </Stack.Protected>
           </Stack>
+          {/* Khay thông báo nổi trên mọi màn — gắn MỘT LẦN ở đây */}
+          <Toaster />
         </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

@@ -41,6 +41,9 @@ export const ASSIGNMENT_TYPE_LABEL: Record<string, string> = {
   quiz: 'Quiz',
   essay: 'Essay',
   image_upload: 'Image Upload',
+  multi_task: 'Nhiều mục',
+  youtube_video: 'YouTube Video',
+  shadowing: 'Shadowing',
 };
 
 export function assignmentTypeLabel(code?: string | null) {

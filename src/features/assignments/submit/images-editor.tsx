@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 /** Ảnh trong bài nộp: ảnh đã nộp trước đó (có S3 key) hoặc ảnh mới chọn trên máy. */
@@ -34,7 +35,7 @@ export function ImagesEditor({ images, onChange, max = 10, disabled }: Props) {
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
+      showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
       return;
     }
     const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 });
@@ -43,7 +44,7 @@ export function ImagesEditor({ images, onChange, max = 10, disabled }: Props) {
 
   function add(uris: string[]) {
     const next = [...images, ...uris.map((uri) => ({ kind: 'new' as const, uri }))].slice(0, max);
-    if (images.length + uris.length > max) Alert.alert('Quá số ảnh', `Mỗi bài tối đa ${max} ảnh.`);
+    if (images.length + uris.length > max) showToast('warning', 'Quá số ảnh', `Mỗi bài tối đa ${max} ảnh.`);
     onChange(next);
   }
 

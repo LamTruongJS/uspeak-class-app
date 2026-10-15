@@ -71,6 +71,8 @@ export interface AssignmentDetail {
   grading_criteria: { name: string; max_score: number; description: string }[];
   requires_grading: boolean;
   test_template?: string | null;
+  /** Tài liệu giáo viên đính kèm (link presigned 7 ngày) — class-be thêm 15/10/2026 */
+  attachments?: { key: string; name: string; type: string; size: number; url?: string }[];
   submission_items?: SubmissionItemDef[];
   can_submit: boolean;
   cannot_submit_reason: string;

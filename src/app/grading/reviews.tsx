@@ -68,7 +68,7 @@ export default function GradingReviewsScreen() {
           <ListToolbar
             search={search}
             onSearch={setSearch}
-            searchPlaceholder="Tìm học viên / bài tập / lớp…"
+            searchPlaceholder="Tìm học viên, bài tập, lớp..."
             summary={query.data ? `${total.toLocaleString('vi-VN')} bài đang chờ duyệt nhận xét` : undefined}
           />
         }

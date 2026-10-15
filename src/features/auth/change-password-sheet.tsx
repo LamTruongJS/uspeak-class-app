@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { TextField } from '@/components/ui/text-field';
@@ -50,7 +51,7 @@ export function ChangePasswordSheet({ visible, onClose }: { visible: boolean; on
     try {
       await authApi.changePassword({ currentPassword: current, newPassword: next });
       close();
-      Alert.alert('Đã đổi mật khẩu', 'Lần đăng nhập sau hãy dùng mật khẩu mới nhé.');
+      showToast('success', 'Đã đổi mật khẩu', 'Lần đăng nhập sau hãy dùng mật khẩu mới nhé.');
     } catch (err) {
       setError(getErrorMessage(err, 'Mật khẩu hiện tại không đúng.'));
     } finally {

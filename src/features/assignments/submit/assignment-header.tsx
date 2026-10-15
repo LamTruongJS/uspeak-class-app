@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState, type ComponentProps } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -62,6 +63,26 @@ export function AssignmentHeader({ assignment }: { assignment: AssignmentDetail 
                 <Text className="pt-1.5 text-sm font-semibold text-brand">{expanded ? 'Thu gọn' : 'Xem thêm'}</Text>
               </Pressable>
             ) : null}
+          </View>
+        ) : null}
+
+        {assignment.attachments?.length ? (
+          <View className="gap-2 border-t border-border pt-3">
+            <Text className="text-sm font-semibold text-foreground">Tài liệu đính kèm</Text>
+            {assignment.attachments.map((a) => (
+              <Pressable
+                key={a.key}
+                onPress={() => a.url && void WebBrowser.openBrowserAsync(a.url)}
+                className="flex-row items-center gap-3 rounded-xl bg-surface-muted p-2.5 active:opacity-70">
+                <View className="h-9 w-9 items-center justify-center rounded-lg bg-brand-soft">
+                  <Text className="text-[9.5px] font-extrabold text-brand">{(a.name.split('.').pop() ?? 'FILE').slice(0, 4).toUpperCase()}</Text>
+                </View>
+                <Text className="flex-1 text-sm font-medium text-foreground" numberOfLines={1}>
+                  {a.name}
+                </Text>
+                <Ionicons name="open-outline" size={16} color={muted} />
+              </Pressable>
+            ))}
           </View>
         ) : null}
 

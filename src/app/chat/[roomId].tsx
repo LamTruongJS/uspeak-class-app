@@ -1,22 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  AppState,
-  FlatList,
-  Keyboard,
-  Platform,
-  Pressable,
-  Text,
-  useWindowDimensions,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { ActivityIndicator, AppState, FlatList, Keyboard, Platform, Pressable, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { activeRoom } from '@/features/chat/active-room';
@@ -81,6 +70,7 @@ export default function ChatRoomScreen() {
   const [actionFor, setActionFor] = useState<ChatMessage | null>(null);
   const [forwardFor, setForwardFor] = useState<ChatMessage | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
+  const sheet = useActionSheet();
   const [searchOpen, setSearchOpen] = useState(false);
   const [jumping, setJumping] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -252,7 +242,7 @@ export default function ChatRoomScreen() {
     }
     setJumping(false);
     if (index < 0) {
-      Alert.alert('Không tìm thấy tin', 'Tin nhắn này đã quá cũ hoặc đã bị xoá.');
+      showToast('error', 'Không tìm thấy tin', 'Tin nhắn này đã quá cũ hoặc đã bị xoá.');
       return;
     }
     setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }), 60);
@@ -514,15 +504,17 @@ export default function ChatRoomScreen() {
     setEditing(null);
     if (content === m.content) return;
     const res = await emitWithAck('edit_message', { message_id: m._id, room_id: roomId, content });
-    if (!res.success) Alert.alert('Chưa sửa được', res.error);
+    if (!res.success) showToast('error', 'Chưa sửa được', res.error);
   };
 
   const retry = (m: ChatMessage) => {
-    Alert.alert('Tin chưa gửi được', undefined, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Xoá tin', style: 'destructive', onPress: () => setPending((p) => p.filter((x) => x._id !== m._id)) },
-      { text: 'Gửi lại', onPress: () => retryers.current.get(m._id)?.() },
-    ]);
+    sheet.show({
+      title: 'Tin chưa gửi được',
+      actions: [
+        { label: 'Gửi lại', icon: 'refresh-outline', onPress: () => retryers.current.get(m._id)?.() },
+        { label: 'Xoá tin', icon: 'trash-outline', danger: true, onPress: () => setPending((p) => p.filter((x) => x._id !== m._id)) },
+      ],
+    });
   };
 
   // Thả cảm xúc: lỗi thì thôi (không đáng một hộp thoại); server dội message_reacted về để cập nhật.
@@ -532,21 +524,20 @@ export default function ChatRoomScreen() {
 
   const pin = async (m: ChatMessage, pinned: boolean) => {
     const res = await emitWithAck('pin_message', { message_id: m._id, room_id: roomId, pinned });
-    if (!res.success) Alert.alert(pinned ? 'Chưa ghim được' : 'Chưa bỏ ghim được', res.error);
+    if (!res.success) showToast('error', pinned ? 'Chưa ghim được' : 'Chưa bỏ ghim được', res.error);
   };
 
   const recall = (m: ChatMessage) => {
-    Alert.alert('Thu hồi tin nhắn?', 'Mọi người trong phòng sẽ không còn thấy nội dung tin này.', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Thu hồi',
-        style: 'destructive',
-        onPress: async () => {
-          const res = await emitWithAck('recall_message', { message_id: m._id, room_id: roomId });
-          if (!res.success) Alert.alert('Chưa thu hồi được', res.error);
-        },
+    sheet.confirm({
+      title: 'Thu hồi tin nhắn?',
+      message: 'Mọi người trong phòng sẽ không còn thấy nội dung tin này.',
+      label: 'Thu hồi',
+      icon: 'arrow-undo-outline',
+      onConfirm: async () => {
+        const res = await emitWithAck('recall_message', { message_id: m._id, room_id: roomId });
+        if (!res.success) showToast('error', 'Chưa thu hồi được', res.error);
       },
-    ]);
+    });
   };
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -766,6 +757,7 @@ export default function ChatRoomScreen() {
         </View>
       </KeyboardAvoider>
 
+      {sheet.sheet}
       <MessageActions
         message={actionFor}
         myId={myId}

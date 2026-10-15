@@ -1,7 +1,8 @@
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Segmented } from '@/components/ui/segmented';
@@ -31,7 +32,7 @@ export default function NewForumPostScreen() {
   async function submit() {
     const text = content.trim();
     if (!text) {
-      Alert.alert('Chưa có nội dung', 'Viết vài dòng trước khi đăng nhé.');
+      showToast('warning', 'Chưa có nội dung', 'Viết vài dòng trước khi đăng nhé.');
       return;
     }
     try {
@@ -42,7 +43,7 @@ export default function NewForumPostScreen() {
       });
       router.back();
     } catch (err) {
-      Alert.alert('Đăng bài không thành công', getErrorMessage(err));
+      showToast('error', 'Đăng bài không thành công', getErrorMessage(err));
     }
   }
 

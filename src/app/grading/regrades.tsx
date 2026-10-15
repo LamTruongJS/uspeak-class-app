@@ -3,21 +3,27 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { sessionLabel } from '@/features/assignments/assignment-card';
-import { REQUEST_STATUS_FILTERS, useMyRegradeRequests } from '@/features/assignments/requests-api';
+import { useMyRegradeRequests } from '@/features/assignments/requests-api';
 import { GroupedList, groupByDay, ListToolbar, SubmissionRow, timeOf, type Tone } from '@/features/assignments/staff-list';
 import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 
 type Tab = 'assigned' | 'requester';
 
+const REGRADE_STATUS_FILTERS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'pending', label: 'Chờ chấm lại' },
+  { value: 'fulfilled', label: 'Đã chấm lại' },
+];
+
 /**
- * Nhận xét bài lại (web /assignments/regrades) — 2 phía: "Tôi nhận xét lại" (role=assigned) và "Tôi đã yêu cầu"
- * (role=requester), nhóm theo ngày yêu cầu, mặc định lọc "Chưa xong". Bài đang chờ và mình được giao → màn
+ * Nhận xét bài lại (web /assignments/regrades) — 2 phía: hàng đợi (role=assigned) và theo dõi (role=requester),
+ * nhóm theo ngày yêu cầu. Bài đang chờ và mình được giao → màn
  * nhận xét lại trong app; còn lại → xem kết quả.
  */
 export default function RegradesScreen() {
   const [tab, setTab] = useState<Tab>('assigned');
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('all');
   const [now] = useState(() => Date.now());
   const { data: token } = useMediaToken();
 
@@ -44,15 +50,15 @@ export default function RegradesScreen() {
         header={
           <ListToolbar
             tabs={[
-              { value: 'assigned', label: 'Tôi nhận xét lại' },
-              { value: 'requester', label: 'Tôi đã yêu cầu' },
+              { value: 'assigned', label: 'Hàng đợi chấm lại' },
+              { value: 'requester', label: 'Theo dõi yêu cầu' },
             ]}
             tab={tab}
             onTab={(v) => {
               setTab(v);
-              setStatus('pending');
+              setStatus('all');
             }}
-            filters={REQUEST_STATUS_FILTERS}
+            filters={REGRADE_STATUS_FILTERS}
             filter={status}
             onFilter={setStatus}
             summary={query.data ? `${total.toLocaleString('vi-VN')} yêu cầu` : undefined}

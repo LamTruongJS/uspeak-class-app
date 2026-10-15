@@ -14,12 +14,19 @@ import { plainText } from './api';
  * classes/[classId]/AssignmentsTab.tsx (bài nộp / đúng hạn / nộp muộn / chưa nộp).
  * `totalStudents` là sĩ số lớp (stats.total_students) để hiện "đã nộp x/sĩ số".
  */
+function sessionBadge(v?: string | null) {
+  const t = (v ?? '').trim();
+  if (!t || /^buổi$/i.test(t)) return null;
+  return /^buổi/i.test(t) ? t : `Buổi ${t}`;
+}
+
 export const ClassAssignmentCard = memo(function ClassAssignmentCard({
   item,
   totalStudents,
   expanded,
   overdue,
   onToggle,
+  onMore,
 }: {
   item: ClassAssignmentItem;
   totalStudents?: number;
@@ -27,13 +34,15 @@ export const ClassAssignmentCard = memo(function ClassAssignmentCard({
   /** Đã quá hạn nộp — tính ở màn hình (React Compiler cấm Date.now() trong render). */
   overdue: boolean;
   onToggle: () => void;
+  /** Nhân sự có quyền nhân bản / xoá → nút ⋯ */
+  onMore?: () => void;
 }) {
   const muted = useThemeColor('muted');
   const description = expanded ? plainText(item.description) : '';
   const submitted = item.submission_count ?? 0;
 
   return (
-    <Pressable onPress={onToggle} className="gap-2.5 rounded-2xl border border-border bg-surface p-3.5 active:bg-surface-muted">
+    <Pressable onPress={onToggle} className="gap-2.5 rounded-3xl bg-surface p-3.5 active:opacity-90">
       <View className="flex-row items-start gap-2">
         <View className="flex-1 gap-1.5">
           <Text className="text-[15px] font-semibold leading-5 text-foreground" numberOfLines={expanded ? undefined : 2}>
@@ -41,11 +50,18 @@ export const ClassAssignmentCard = memo(function ClassAssignmentCard({
           </Text>
           <View className="flex-row flex-wrap items-center gap-1.5">
             <Badge label={assignmentTypeLabel(item.assignment_type?.code)} tone="violet" />
-            {item.session_number ? <Badge label={`Buổi ${item.session_number}`} tone="info" /> : null}
+            {/* session_number lúc là "5", lúc là cả "Buổi 5", lúc chỉ còn chữ "Buổi " mặc định của web */}
+            {sessionBadge(item.session_number) ? <Badge label={sessionBadge(item.session_number)!} tone="info" /> : null}
             {item.is_published ? null : <Badge label="Nháp" tone="neutral" />}
           </View>
         </View>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={muted} />
+        {onMore ? (
+          <Pressable onPress={onMore} hitSlop={8} accessibilityLabel="Thao tác bài tập" className="h-8 w-8 items-center justify-center rounded-full bg-surface-muted active:opacity-70">
+            <Ionicons name="ellipsis-horizontal" size={16} color={muted} />
+          </Pressable>
+        ) : (
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={muted} />
+        )}
       </View>
 
       <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">

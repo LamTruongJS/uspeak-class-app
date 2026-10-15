@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
+import { showToast } from '@/components/ui/toast';
 import {
   isAnswered,
   sortedFields,
@@ -58,17 +59,17 @@ export default function SurveyFormScreen() {
 
     const missing = fields.find((f) => f.required && !isAnswered(merged[f.field_key]));
     if (missing) {
-      Alert.alert('Còn câu bắt buộc', `Vui lòng trả lời: "${missing.label}"`);
+      showToast('warning', 'Còn câu bắt buộc', `Vui lòng trả lời: "${missing.label}"`);
       return;
     }
 
     try {
       await submit.mutateAsync({ template_id: templateId, class_id: classId, answers: toAnswerList(merged) });
-      Alert.alert(alreadySent ? 'Đã cập nhật khảo sát' : 'Đã gửi khảo sát', 'Cảm ơn bạn đã dành thời gian trả lời!', [
-        { text: 'Xong', onPress: () => router.back() },
-      ]);
+      // Quay lại ngay, lời cảm ơn hiện thành toast trên màn trước — không bắt bấm "Xong" chỉ để đọc
+      router.back();
+      showToast('success', alreadySent ? 'Đã cập nhật khảo sát' : 'Đã gửi khảo sát', 'Cảm ơn bạn đã dành thời gian trả lời!');
     } catch (err) {
-      Alert.alert('Gửi không thành công', getErrorMessage(err));
+      showToast('error', 'Gửi không thành công', getErrorMessage(err));
     }
   }
 

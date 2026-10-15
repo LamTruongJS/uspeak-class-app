@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { useThemeColor } from '@/theme/use-theme-color';
@@ -56,7 +57,7 @@ export function CreatePollSheet({ roomId, visible, onClose }: { roomId: string; 
     });
     setSending(false);
     if (!res.success) {
-      Alert.alert('Chưa tạo được bình chọn', res.error);
+      showToast('error', 'Chưa tạo được bình chọn', res.error);
       return;
     }
     reset();

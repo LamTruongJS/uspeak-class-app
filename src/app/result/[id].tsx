@@ -19,6 +19,7 @@ import {
 } from '@/features/assignments/detail-api';
 import { rangeLabel, useSegmentPlayback } from '@/features/assignments/segment-loop';
 import { SpeakingFeedback } from '@/features/assignments/quiz/speaking-feedback';
+import { SubmissionHistoryTimeline } from '@/features/assignments/submission-history';
 import { ImageViewer } from '@/features/chat/message-content';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
@@ -88,7 +89,7 @@ export default function ResultScreen() {
           </Text>
         </View>
 
-        {isQuiz ? <QuizResultView data={data} /> : <GradedView data={data} noGrading={noGrading} />}
+        {isQuiz ? <QuizResultView data={data} /> : <GradedView key={id} data={data} noGrading={noGrading} submissionId={id} />}
       </ScrollView>
     </Shell>
   );
@@ -259,21 +260,127 @@ function QuizQuestionResult({
 
 // ─── Bài video / ảnh / nhiều mục ────────────────────────────────────────────
 
-function GradedView({ data, noGrading }: { data: SubmissionResult; noGrading: boolean }) {
+type ResultTab = 'playlist' | 'grading' | 'review_requirements' | 'requirements' | 'history';
+
+type ResultMedia =
+  | { kind: 'video'; key: string; label: string; videoId: string; itemKey?: string }
+  | { kind: 'image'; key: string; label: string; url: string; itemKey?: string };
+
+function resultMedia(data: SubmissionResult): ResultMedia[] {
+  if (data.submitted_items?.length) {
+    return data.submitted_items.flatMap((item) => {
+      const videos = (item.video_urls ?? []).flatMap((url, index): ResultMedia[] => {
+        const videoId = extractYoutubeVideoId(url);
+        return videoId
+          ? [{ kind: 'video', key: `${item.item_key}-v${index}`, label: item.label, videoId, itemKey: item.item_key }]
+          : [];
+      });
+      const images = (item.image_urls ?? []).map(
+        (url, index): ResultMedia => ({
+          kind: 'image',
+          key: `${item.item_key}-i${index}`,
+          label: item.label,
+          url,
+          itemKey: item.image_urls.length > 1 ? `${item.item_key}#${index}` : item.item_key,
+        }),
+      );
+      return [...videos, ...images];
+    });
+  }
+
+  const videoUrls = data.video_urls?.length ? data.video_urls : data.video_url ? [data.video_url] : [];
+  return [
+    ...videoUrls.flatMap((url, index): ResultMedia[] => {
+      const videoId = extractYoutubeVideoId(url);
+      return videoId ? [{ kind: 'video', key: `video-${index}`, label: `Video ${index + 1}`, videoId }] : [];
+    }),
+    ...(data.image_urls ?? []).map(
+      (url, index): ResultMedia => ({ kind: 'image', key: `image-${index}`, label: `Ảnh ${index + 1}`, url }),
+    ),
+  ];
+}
+
+function GradedView({ data, noGrading, submissionId }: { data: SubmissionResult; noGrading: boolean; submissionId: string }) {
   const fb = data.feedback;
   const comments = fb?.timestamp_comments ?? [];
+  const media = resultMedia(data);
+  const [tab, setTab] = useState<ResultTab>('grading');
+  const [activeKey, setActiveKey] = useState<string | null>(media[0]?.key ?? null);
+  const current = media.find((item) => item.key === activeKey) ?? media[0];
+  const tabs: [ResultTab, string][] = [
+    ...(media.length > 1 ? ([['playlist', 'Danh sách bài nộp']] as [ResultTab, string][]) : []),
+    ['grading', 'Kết quả'],
+    ['review_requirements', 'Yêu cầu nhận xét'],
+    ['requirements', 'Yêu cầu bài tập'],
+    ['history', 'Lịch sử'],
+  ];
 
-  // Nhóm media: bài nhiều mục theo từng mục; bài thường là 1 nhóm
-  const groups: { label?: string; videos: string[]; images: string[] }[] = data.submitted_items?.length
-    ? data.submitted_items.map((it) => ({ label: it.label, videos: it.video_urls ?? [], images: it.image_urls ?? [] }))
-    : [
-        {
-          videos: data.video_urls?.length ? data.video_urls : data.video_url ? [data.video_url] : [],
-          images: data.image_urls ?? [],
-        },
-      ];
+  return (
+    <View className="gap-4">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="rounded-2xl border border-border bg-surface"
+        contentContainerClassName="px-2">
+        {tabs.map(([key, label]) => {
+          const selected = tab === key;
+          return (
+            <Pressable key={key} onPress={() => setTab(key)} className="relative h-11 justify-center px-3.5 active:opacity-70">
+              <Text className={`text-[13px] font-semibold ${selected ? 'text-brand' : 'text-muted'}`}>{label}</Text>
+              {selected ? <View className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t-full bg-brand" /> : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
-  const imageComments = comments.filter((c) => c.kind === 'image');
+      {tab === 'playlist' ? (
+        <ResultMediaPlaylist
+          media={media}
+          activeKey={current?.key}
+          comments={comments}
+          onSelect={(key) => {
+            setActiveKey(key);
+            setTab('grading');
+          }}
+        />
+      ) : tab === 'review_requirements' ? (
+        <ResultTabContent icon="clipboard-outline" empty="Không có yêu cầu nhận xét">
+          {data.assignment_review_requirement ? <RichText html={data.assignment_review_requirement} /> : null}
+        </ResultTabContent>
+      ) : tab === 'requirements' ? (
+        <ResultTabContent icon="document-text-outline" empty="Không có mô tả cho bài tập này">
+          {data.assignment_description ? <RichText html={data.assignment_description} /> : null}
+        </ResultTabContent>
+      ) : tab === 'history' ? (
+        <SubmissionHistoryTimeline submissionId={submissionId} />
+      ) : (
+        <ResultContent data={data} noGrading={noGrading} media={current} comments={comments} />
+      )}
+    </View>
+  );
+}
+
+function ResultContent({
+  data,
+  noGrading,
+  media,
+  comments,
+}: {
+  data: SubmissionResult;
+  noGrading: boolean;
+  media?: ResultMedia;
+  comments: TimestampComment[];
+}) {
+  const fb = data.feedback;
+  const videoComments =
+    media?.kind === 'video'
+      ? comments.filter((comment) => comment.kind !== 'image' && (!comment.videoId || comment.videoId === media.videoId))
+      : [];
+  const allImageComments = comments.filter((comment) => comment.kind === 'image');
+  const imageComments =
+    media?.kind === 'image' && media.itemKey
+      ? allImageComments.filter((comment) => !comment.itemKey || comment.itemKey === media.itemKey)
+      : allImageComments;
 
   return (
     <View className="gap-4">
@@ -290,7 +397,9 @@ function GradedView({ data, noGrading }: { data: SubmissionResult; noGrading: bo
           {fb.text_feedback ? (
             <Card icon="chatbubble-ellipses-outline" title="Nhận xét của giáo viên" tone="brand">
               <View className="rounded-xl bg-info-soft p-3">
-                <RichText html={fb.text_feedback} />
+                <Text className="text-[15px] leading-6 text-foreground" selectable>
+                  {fb.text_feedback}
+                </Text>
               </View>
               <View className="flex-row items-center justify-between pt-2.5">
                 <Text className="text-[11.5px] text-muted" numberOfLines={1}>
@@ -309,40 +418,85 @@ function GradedView({ data, noGrading }: { data: SubmissionResult; noGrading: bo
         />
       )}
 
-      {groups.map((g, gi) => (
-        <View key={gi} className="gap-3">
-          {g.label ? <Text className="text-base font-semibold text-foreground">{g.label}</Text> : null}
-          {g.videos.map((url, vi) => {
-            const vid = extractYoutubeVideoId(url);
-            const own = comments.filter((c) => c.kind !== 'image' && (!c.videoId || c.videoId === vid));
-            return vid ? <VideoWithComments key={`${vid}-${vi}`} videoId={vid} comments={own} /> : null;
-          })}
-          {g.images.length ? <ImageGrid urls={g.images} /> : null}
+      {media ? (
+        <View className="gap-2">
+          <Text className="text-sm font-semibold text-foreground">{media.label}</Text>
+          {media.kind === 'video' ? <VideoWithComments videoId={media.videoId} comments={videoComments} /> : <ImageGrid urls={[media.url]} />}
         </View>
-      ))}
+      ) : (
+        <InfoCard icon="cloud-offline-outline" title="Không có nội dung bài nộp" body="Bài nộp này không có video hoặc hình ảnh để hiển thị." />
+      )}
 
-      {imageComments.length ? (
+      {media?.kind === 'image' && imageComments.length ? (
         <Card icon="image-outline" title={`Nhận xét trên ảnh (${imageComments.length})`} tone="info">
-          {imageComments.map((c) => (
-            <View key={c.id} className="flex-row gap-2 py-1">
+          {imageComments.map((comment) => (
+            <View key={comment.id} className="flex-row gap-2 py-1">
               <Text className="text-sm text-muted">•</Text>
-              <Text className="flex-1 text-sm text-foreground">{c.text}</Text>
+              <Text className="flex-1 text-sm text-foreground">{comment.text}</Text>
             </View>
           ))}
         </Card>
       ) : null}
+    </View>
+  );
+}
 
-      {/* Yêu cầu của bài — bên web là 2 tab riêng; ở app gấp lại cho khỏi chiếm màn hình */}
-      {data.assignment_description ? (
-        <Collapsible icon="list-outline" title="Yêu cầu bài tập">
-          <RichText html={data.assignment_description} />
-        </Collapsible>
-      ) : null}
-      {data.assignment_review_requirement ? (
-        <Collapsible icon="checkbox-outline" title="Yêu cầu nhận xét">
-          <RichText html={data.assignment_review_requirement} />
-        </Collapsible>
-      ) : null}
+function ResultMediaPlaylist({
+  media,
+  activeKey,
+  comments,
+  onSelect,
+}: {
+  media: ResultMedia[];
+  activeKey?: string;
+  comments: TimestampComment[];
+  onSelect: (key: string) => void;
+}) {
+  const muted = useThemeColor('muted');
+  const brand = useThemeColor('brand');
+  return (
+    <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+      {media.map((item, index) => {
+        const selected = item.key === activeKey;
+        const count = comments.filter((comment) =>
+          item.kind === 'video'
+            ? comment.kind !== 'image' && comment.videoId === item.videoId
+            : comment.kind === 'image' && (!item.itemKey || !comment.itemKey || comment.itemKey === item.itemKey),
+        ).length;
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => onSelect(item.key)}
+            className={`flex-row items-center gap-3 px-4 py-3 active:bg-surface-muted ${index ? 'border-t border-border' : ''}`}>
+            <View className={`h-10 w-10 items-center justify-center rounded-xl ${selected ? 'bg-brand-soft' : 'bg-surface-muted'}`}>
+              <Ionicons name={item.kind === 'video' ? 'videocam' : 'image'} size={19} color={selected ? brand : muted} />
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text className={`text-[14px] font-semibold ${selected ? 'text-brand' : 'text-foreground'}`} numberOfLines={2}>
+                {item.label}
+              </Text>
+              <Text className="mt-0.5 text-[11.5px] text-muted">
+                {item.kind === 'video' ? 'Video' : 'Hình ảnh'} · {count} nhận xét
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={muted} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ResultTabContent({ icon, empty, children }: { icon: ComponentProps<typeof Ionicons>['name']; empty: string; children: ReactNode }) {
+  const muted = useThemeColor('muted');
+  return (
+    <View className="min-h-36 rounded-2xl border border-border bg-surface p-4">
+      {children || (
+        <View className="flex-1 items-center justify-center gap-2 py-8">
+          <Ionicons name={icon} size={30} color={muted} />
+          <Text className="text-center text-[13.5px] text-muted">{empty}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -522,30 +676,6 @@ function Card({
         <Text className="text-[14px] font-bold text-foreground">{title}</Text>
       </View>
       {children}
-    </View>
-  );
-}
-
-/** Khối gấp được — dành cho nội dung dài (yêu cầu bài tập, yêu cầu nhận xét). */
-function Collapsible({
-  icon,
-  title,
-  children,
-}: {
-  icon: ComponentProps<typeof Ionicons>['name'];
-  title: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const muted = useThemeColor('muted');
-  return (
-    <View className="overflow-hidden rounded-2xl border border-border bg-surface">
-      <Pressable onPress={() => setOpen((v) => !v)} className="flex-row items-center gap-2 px-4 py-3 active:bg-surface-muted">
-        <Ionicons name={icon} size={16} color={muted} />
-        <Text className="flex-1 text-[14px] font-bold text-foreground">{title}</Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={muted} />
-      </Pressable>
-      {open ? <View className="border-t border-border px-4 py-3">{children}</View> : null}
     </View>
   );
 }

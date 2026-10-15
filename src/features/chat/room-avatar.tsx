@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
 import { thumbCacheKey, thumbMediaUrl } from '@/lib/media';
@@ -68,27 +68,26 @@ export function RoomAvatar({
       </View>
     );
   }
-  if (uri) {
-    return (
-      <Image
-        source={{ uri, cacheKey: key }}
-        recyclingKey={key}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
-        contentFit="cover"
-      />
-    );
-  }
   const initials = roomInitials(room);
+  // Ảnh phòng (nếu có) ĐÈ LÊN mã lớp chứ không thay chỗ: `<Image>` lúc chưa tải xong không vẽ gì,
+  // nên sau mỗi lần dựng lại danh sách (đổi bộ lọc) avatar biến mất một nhịp, dòng trông như lỗi.
   return (
-    <View
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(room._id) }}
-      className="items-center justify-center">
-      <Text
-        className="font-bold text-white"
-        style={{ fontSize: (initials.length > 5 ? 11.5 : initials.length > 3 ? 13.5 : 17) * k }}
-        numberOfLines={1}>
-        {initials}
-      </Text>
+    // Hai lớp: vòng tròn tự cắt ảnh (overflow-hidden), huy hiệu mũ tốt nghiệp nằm NGOÀI vòng tròn
+    // nên không bị cắt mất một nửa.
+    <View style={{ width: size, height: size }}>
+      <View
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(room._id) }}
+        className="items-center justify-center overflow-hidden">
+        <Text
+          className="font-bold text-white"
+          style={{ fontSize: (initials.length > 5 ? 11.5 : initials.length > 3 ? 13.5 : 17) * k }}
+          numberOfLines={1}>
+          {initials}
+        </Text>
+        {uri ? (
+          <Image source={{ uri, cacheKey: key }} recyclingKey={key} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : null}
+      </View>
       {CLASS_ROOM_TYPES.has(room.type) ? (
         <View
           className="absolute -bottom-0.5 -right-0.5 items-center justify-center rounded-full border-2 border-background bg-surface"

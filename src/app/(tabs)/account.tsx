@@ -4,14 +4,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { mediaCacheKey, useMediaUrl } from '@/lib/media';
 import { Screen } from '@/components/ui/screen';
 import { SUPPORT_HOTLINE, SUPPORT_HOTLINE_TEL } from '@/constants/support';
 import { authApi } from '@/features/auth/api';
 import { ChangePasswordSheet } from '@/features/auth/change-password-sheet';
+import { EditProfileSheet } from '@/features/auth/edit-profile-sheet';
+import { PaymentInfoSheet } from '@/features/auth/payment-info-sheet';
+import { findBank } from '@/features/auth/vietqr-banks';
 import { getErrorMessage } from '@/lib/api/client';
 import { FEATURES } from '@/navigation/features';
 import { openFeature } from '@/navigation/open-feature';
@@ -60,8 +65,15 @@ export default function AccountScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const sheet = useActionSheet();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const roles = user?.available_roles ?? [];
+  // Khối "Thông tin nhận tiền" ẩn với học viên — giống bản web (chỉ người chấm bài mới cần)
+  const isStudent = (user?.role_code ?? 'ST') === 'ST';
+  const payment = user?.payment_info;
+  const paymentBank = findBank(payment?.bank_code);
   const policies = FEATURES.find((f) => f.key === 'policies');
   const roleName = ROLE_NAMES[user?.role_code ?? ''] ?? user?.role_code ?? '';
 
@@ -73,7 +85,7 @@ export default function AccountScreen() {
       const url = await authApi.uploadAvatar(res.assets[0].uri);
       if (url) setUser({ ...user, avatar: url });
     } catch (err) {
-      Alert.alert('Chưa đổi được ảnh', getErrorMessage(err));
+      showToast('error', 'Chưa đổi được ảnh', getErrorMessage(err));
     } finally {
       setUploading(false);
     }
@@ -85,30 +97,29 @@ export default function AccountScreen() {
     try {
       const result = await authApi.switchRole(roleCode);
       if (result.needSelection) {
-        Alert.alert('Cần chọn tài khoản', 'Vai trò này có nhiều tài khoản — vui lòng đăng xuất rồi đăng nhập lại để chọn.');
+        showToast('warning', 'Cần chọn tài khoản', 'Vai trò này có nhiều tài khoản — vui lòng đăng xuất rồi đăng nhập lại để chọn.');
         return;
       }
       await completeLogin(result);
       router.navigate('/');
     } catch (err) {
-      Alert.alert('Không đổi được vai trò', getErrorMessage(err));
+      showToast('error', 'Không đổi được vai trò', getErrorMessage(err));
     } finally {
       setSwitching(null);
     }
   }
 
   function confirmLogout() {
-    Alert.alert('Đăng xuất', 'Bạn chắc chắn muốn đăng xuất?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          setLoggingOut(true);
-          await logout();
-        },
+    sheet.confirm({
+      title: 'Đăng xuất',
+      message: 'Bạn chắc chắn muốn đăng xuất?',
+      label: 'Đăng xuất',
+      icon: 'log-out-outline',
+      onConfirm: async () => {
+        setLoggingOut(true);
+        await logout();
       },
-    ]);
+    });
   }
 
   return (
@@ -146,7 +157,22 @@ export default function AccountScreen() {
       <Section title="Thông tin">
         <InfoRow first icon="mail" color="#2563eb" label="Email" value={user?.email} />
         <InfoRow icon="call" color="#059669" label="Số điện thoại" value={user?.phone} />
+        <Row icon="create" color="#7c3aed" label="Sửa hồ sơ" hint="Tên · SĐT" onPress={() => setProfileOpen(true)} />
       </Section>
+
+      {/* ── Nhận tiền chấm bài (nhân sự) ── */}
+      {!isStudent ? (
+        <Section title="Nhận tiền chấm bài">
+          <Row
+            first
+            icon="card"
+            color="#059669"
+            label={paymentBank ? paymentBank.shortName : 'Thêm tài khoản nhận tiền'}
+            hint={payment?.bank_account_number ? maskAccount(payment.bank_account_number) : 'Chưa có'}
+            onPress={() => setPaymentOpen(true)}
+          />
+        </Section>
+      ) : null}
 
       {/* ── Bảo mật ── */}
       <Section title="Bảo mật">
@@ -215,9 +241,17 @@ export default function AccountScreen() {
 
       <Text className="pt-4 text-center text-xs text-muted">Uspeak Class · Phiên bản {Constants.expoConfig?.version ?? '—'}</Text>
 
+      {sheet.sheet}
       <ChangePasswordSheet visible={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <EditProfileSheet visible={profileOpen} onClose={() => setProfileOpen(false)} />
+      <PaymentInfoSheet visible={paymentOpen} onClose={() => setPaymentOpen(false)} />
     </Screen>
   );
+}
+
+/** "…4321" — số tài khoản không hiện đủ trên màn hình dễ bị người khác nhìn thấy. */
+function maskAccount(v: string) {
+  return v.length > 4 ? `••••${v.slice(-4)}` : v;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

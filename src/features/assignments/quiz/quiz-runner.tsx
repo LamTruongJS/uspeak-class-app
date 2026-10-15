@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useNavigation } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { Button } from '@/components/ui/button';
+import { showToast } from '@/components/ui/toast';
 import { getErrorMessage } from '@/lib/api/client';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -37,6 +39,7 @@ export function QuizRunner({ assignment, header }: { assignment: AssignmentDetai
   const [gridOpen, setGridOpen] = useState(false);
   const [recordingKey, setRecordingKey] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const sheet = useActionSheet();
 
   const done = !!session.submittedId;
   const guard = started && !done && !session.submitting;
@@ -46,25 +49,20 @@ export function QuizRunner({ assignment, header }: { assignment: AssignmentDetai
     if (!guard) return;
     return navigation.addListener('beforeRemove', (e) => {
       e.preventDefault();
-      Alert.alert(
-        'Thoát khỏi bài làm?',
-        session.timed
+      sheet.confirm({
+        title: 'Thoát khỏi bài làm?',
+        message: session.timed
           ? 'Đồng hồ vẫn tiếp tục chạy khi bạn thoát. Câu trả lời đã được lưu, bạn có thể quay lại làm tiếp.'
           : 'Câu trả lời đã được lưu, bạn có thể quay lại làm tiếp.',
-        [
-          { text: 'Ở lại làm bài', style: 'cancel' },
-          {
-            text: 'Thoát',
-            style: 'destructive',
-            onPress: () => {
-              void session.saveDraft();
-              navigation.dispatch(e.data.action);
-            },
-          },
-        ],
-      );
+        label: 'Thoát',
+        icon: 'exit-outline',
+        onConfirm: () => {
+          void session.saveDraft();
+          navigation.dispatch(e.data.action);
+        },
+      });
     });
-  }, [guard, navigation, session]);
+  }, [guard, navigation, session, sheet]);
 
   // Nộp xong → sang trang kết quả
   useEffect(() => {
@@ -96,30 +94,31 @@ export function QuizRunner({ assignment, header }: { assignment: AssignmentDetai
 
   function trySubmit() {
     if (recordingKey) {
-      Alert.alert('Đang ghi âm', 'Dừng ghi âm câu hiện tại trước khi nộp bài.');
+      showToast('warning', 'Đang ghi âm', 'Dừng ghi âm câu hiện tại trước khi nộp bài.');
       return;
     }
     if (session.missing.length) {
       const first = questions.findIndex((x) => x.key === session.missing[0].key);
-      Alert.alert('Chưa làm xong', `Còn ${session.missing.length} câu chưa làm. Hoàn thành hết rồi mới nộp được.`, [
-        { text: 'Tới câu chưa làm', onPress: () => go(first) },
-      ]);
+      // Nhảy thẳng tới câu còn thiếu, toast nói lý do — nhanh hơn bắt bấm "Tới câu chưa làm"
+      go(first);
+      showToast('warning', 'Chưa làm xong', `Còn ${session.missing.length} câu chưa làm. Hoàn thành hết rồi mới nộp được.`);
       return;
     }
-    Alert.alert(
-      'Nộp bài?',
-      session.uploadingCount
+    sheet.confirm({
+      title: 'Nộp bài?',
+      message: session.uploadingCount
         ? `Còn ${session.uploadingCount} bản thu đang lưu — hệ thống sẽ chờ lưu xong rồi nộp.`
         : 'Bài quiz chỉ nộp được 1 lần, nộp rồi không sửa được.',
-      [
-        { text: 'Kiểm tra lại', style: 'cancel' },
-        { text: 'Nộp bài', onPress: () => void session.submit(false) },
-      ],
-    );
+      label: 'Nộp bài',
+      icon: 'paper-plane-outline',
+      onConfirm: () => void session.submit(false),
+      cancelLabel: 'Kiểm tra lại',
+    });
   }
 
   return (
     <View className="flex-1 bg-background">
+      {sheet.sheet}
       <Stack.Screen
         options={{
           title: `Câu ${index + 1}/${questions.length}`,
@@ -287,7 +286,7 @@ function SpeakingQuestion({
       const res = await submitApi.speakingSample(assignmentId, question.key);
       setSampleUrl(res.data.data?.url ?? null);
     } catch (err) {
-      Alert.alert('Chưa có câu mẫu', getErrorMessage(err));
+      showToast('error', 'Chưa có câu mẫu', getErrorMessage(err));
     } finally {
       setLoadingSample(false);
     }

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { useDeferredValue, useMemo, useState, type ComponentProps } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { SUPPORT_HOTLINE } from '@/constants/support';
@@ -20,8 +21,6 @@ import { isStaffRole } from '@/navigation/features';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
-
 export default function ClassesScreen() {
   const role = useAuthStore((s) => s.user?.role_code);
   return isStaffRole(role) ? <StaffClasses /> : <StudentClasses />;
@@ -29,13 +28,26 @@ export default function ClassesScreen() {
 
 // ─── Chung ──────────────────────────────────────────────────────────────────
 
-function Header({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
+function Header({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View className="gap-3 px-4 pb-1" style={{ paddingTop: insets.top + 12 }}>
-      <View>
-        <Text className="text-[28px] font-bold text-foreground">{title}</Text>
-        {subtitle ? <Text className="text-sm text-muted">{subtitle}</Text> : null}
+      <View className="flex-row items-end gap-3">
+        <View className="flex-1">
+          <Text className="text-[28px] font-bold text-foreground">{title}</Text>
+          {subtitle ? <Text className="text-sm text-muted">{subtitle}</Text> : null}
+        </View>
+        {right}
       </View>
       {children}
     </View>
@@ -73,36 +85,28 @@ function Chips<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  // XUỐNG DÒNG chứ không cuộn ngang: cuộn thì mấy bộ lọc cuối luôn khuất ngoài mép màn hình,
+  // người dùng không biết là còn nữa.
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 grow-0" contentContainerClassName="gap-2 px-4">
+    <View className="flex-row flex-wrap gap-2">
       {items.map((it) => {
         const on = it.value === value;
         return (
           <Pressable
             key={it.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
             onPress={() => onChange(it.value)}
-            className={`flex-row items-center gap-1.5 rounded-full px-3.5 py-1.5 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
-            <Text className={`text-sm font-semibold ${on ? 'text-on-brand' : 'text-foreground'}`}>{it.label}</Text>
+            className={`h-8 flex-row items-center gap-1.5 rounded-full px-3 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
+            <Text className={`text-[13px] font-semibold ${on ? 'text-on-brand' : 'text-foreground'}`}>{it.label}</Text>
             {it.count !== undefined ? (
-              <Text className={`text-xs font-bold ${on ? 'text-on-brand opacity-80' : 'text-muted'}`}>{it.count}</Text>
+              <View className={`rounded-full px-1.5 ${on ? 'bg-white/25' : 'bg-background'}`}>
+                <Text className={`text-[11px] font-bold ${on ? 'text-on-brand' : 'text-muted'}`}>{it.count}</Text>
+              </View>
             ) : null}
           </Pressable>
         );
       })}
-    </ScrollView>
-  );
-}
-
-function SummaryTile({ icon, value, label, color }: { icon: IconName; value: string; label: string; color: string }) {
-  return (
-    <View className="flex-1 gap-1 rounded-2xl border border-border bg-surface p-3">
-      <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}22` }}>
-        <Ionicons name={icon} size={15} color={color} />
-      </View>
-      <Text className="text-xl font-extrabold text-foreground">{value}</Text>
-      <Text className="text-[11px] text-muted" numberOfLines={1}>
-        {label}
-      </Text>
     </View>
   );
 }
@@ -137,10 +141,7 @@ function StudentClasses() {
 
   const open = (c: StudentClassItem) => {
     if (c.access_locked) {
-      Alert.alert(
-        'Lớp đang bị khoá',
-        `${c.access_lock_reason ? `Lý do: ${c.access_lock_reason}\n` : ''}Liên hệ hotline ${SUPPORT_HOTLINE} để được hỗ trợ.`,
-      );
+      showToast('warning', 'Lớp đang bị khoá', `${c.access_lock_reason ? `Lý do: ${c.access_lock_reason}\n` : ''}Liên hệ hotline ${SUPPORT_HOTLINE} để được hỗ trợ.`);
       return;
     }
     router.push({ pathname: '/class/[id]', params: { id: c._id } });
@@ -199,6 +200,11 @@ function StudentClasses() {
 type StatusFilter = 'ALL' | ClassStatus;
 type Owner = 'mine' | 'all';
 
+/**
+ * Lớp dạy (giáo viên / trợ giảng / quản trị) — CÙNG giao diện với "Lớp học của tôi" của học viên
+ * (tiêu đề, ô tìm, chip lọc, thẻ lớp có ảnh bìa — yêu cầu 15/10/2026). Thêm nút "Tất cả / Lớp của tôi"
+ * cho người có quyền xem mọi lớp.
+ */
 function StaffClasses() {
   const tabBarSpace = useTabBarSpace();
   const myId = useAuthStore((s) => s.user?._id);
@@ -209,7 +215,8 @@ function StaffClasses() {
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
   const [owner, setOwner] = useState<Owner | null>(null);
-  const [status, setStatus] = useState<StatusFilter>('IN_PROGRESS');
+  // Mặc định xem TẤT CẢ lớp, không lọc sẵn theo trạng thái nào
+  const [status, setStatus] = useState<StatusFilter>('ALL');
   const [search, setSearch] = useState('');
   const q = useDeferredValue(fold(search.trim()));
 
@@ -227,49 +234,39 @@ function StaffClasses() {
     const s = status === 'ALL' ? byOwner : byOwner.filter((c) => c.status_class === status);
     return q ? s.filter((c) => fold(`${c.display_name ?? ''} ${c.class_name} ${c.class_code} ${c.teacher?.name ?? ''}`).includes(q)) : s;
   }, [byOwner, status, q]);
-  const students = byOwner.reduce((s, c) => s + (c.active_students || 0), 0);
-  const assignments = byOwner.reduce((s, c) => s + (c.assignment_count || 0), 0);
 
+  // "Tất cả" đứng đầu vì đang là lựa chọn mặc định — chip đang chọn nằm ngay hàng đầu
   const statusItems: { value: StatusFilter; label: string; count?: number }[] = [
+    { value: 'ALL', label: 'Tất cả', count: counts.ALL ?? 0 },
     { value: 'IN_PROGRESS', label: STATUS_META.IN_PROGRESS.label, count: counts.IN_PROGRESS ?? 0 },
     { value: 'OPEN_REGISTRATION', label: STATUS_META.OPEN_REGISTRATION.label, count: counts.OPEN_REGISTRATION ?? 0 },
     { value: 'CLOSED_REGISTRATION', label: STATUS_META.CLOSED_REGISTRATION.label, count: counts.CLOSED_REGISTRATION ?? 0 },
     { value: 'ENDED', label: STATUS_META.ENDED.label, count: counts.ENDED ?? 0 },
-    { value: 'ALL', label: 'Tất cả', count: counts.ALL ?? 0 },
   ];
-
-  const header = (
-    <View className="gap-3 pb-3">
-      <View className="flex-row gap-2">
-        <SummaryTile icon="school" color="#2563eb" value={String(byOwner.length)} label="Lớp" />
-        <SummaryTile icon="people" color="#059669" value={students.toLocaleString('vi-VN')} label="Học viên" />
-        <SummaryTile icon="document-text" color="#7c3aed" value={assignments.toLocaleString('vi-VN')} label="Bài tập" />
-      </View>
-    </View>
-  );
 
   return (
     <View className="flex-1 bg-background">
       <Header title="Lớp dạy" subtitle={effOwner === 'mine' ? 'Các lớp bạn phụ trách' : 'Toàn bộ lớp trên hệ thống'}>
         <SearchBox value={search} onChange={setSearch} placeholder="Tìm lớp, mã lớp, giáo viên…" />
-        {canViewAll ? (
-          <View className="flex-row rounded-xl bg-surface-muted p-1">
-            {(
-              [
-                { value: 'all', label: 'Tất cả lớp', count: all.length },
-                { value: 'mine', label: 'Lớp của tôi', count: mineCount },
-              ] as const
-            ).map((o) => (
-              <Pressable
-                key={o.value}
-                onPress={() => setOwner(o.value)}
-                className={`flex-1 items-center rounded-lg py-2 ${effOwner === o.value ? 'bg-surface' : ''}`}>
-                <Text className={`text-sm font-semibold ${effOwner === o.value ? 'text-foreground' : 'text-muted'}`}>
-                  {o.label} <Text className="text-muted">{o.count}</Text>
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+        {/*
+          Lọc theo NGƯỜI PHỤ TRÁCH là một chip bật/tắt, không phải 2 nút chiếm cả hàng nữa.
+          Chỉ hiện khi nó thực sự lọc được gì: quản trị được tính là phụ trách MỌI lớp nên với họ
+          hai lựa chọn ra cùng một danh sách — trước đây hiện thành "Tất cả lớp 76 / Lớp của tôi 76".
+        */}
+        {canViewAll && mineCount < all.length ? (
+          <Pressable
+            onPress={() => setOwner(effOwner === 'mine' ? 'all' : 'mine')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: effOwner === 'mine' }}
+            className={`h-8 flex-row items-center gap-1.5 self-start rounded-full border px-3 ${
+              effOwner === 'mine' ? 'border-brand bg-brand-soft' : 'border-border bg-surface'
+            }`}>
+            <Ionicons name={effOwner === 'mine' ? 'person' : 'person-outline'} size={13} color={effOwner === 'mine' ? brand : muted} />
+            <Text className={`text-[13px] font-semibold ${effOwner === 'mine' ? 'text-brand' : 'text-muted'}`}>Chỉ lớp của tôi</Text>
+            <View className={`rounded-full px-1.5 ${effOwner === 'mine' ? 'bg-brand/15' : 'bg-surface-muted'}`}>
+              <Text className={`text-[11px] font-bold ${effOwner === 'mine' ? 'text-brand' : 'text-muted'}`}>{mineCount}</Text>
+            </View>
+          </Pressable>
         ) : null}
         <Chips<StatusFilter> items={statusItems} value={status} onChange={setStatus} />
       </Header>
@@ -288,7 +285,6 @@ function StaffClasses() {
         <FlashList
           data={list}
           keyExtractor={(c) => c._id}
-          ListHeaderComponent={header}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: tabBarSpace }}
           ItemSeparatorComponent={() => <View className="h-3" />}
           keyboardDismissMode="on-drag"

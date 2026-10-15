@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -46,7 +47,7 @@ export function ForwardSheet({ message, onClose }: { message: ChatMessage | null
     // 1 phòng: server trả kiểu cũ ({ success, data: messages }); nhiều phòng: data là kết quả từng phòng.
     const failed = selected.length > 1 && Array.isArray(res.data) ? res.data.filter((r) => !r.success) : [];
     if (!res.success || failed.length) {
-      Alert.alert('Chưa chuyển tiếp hết', res.error || `${failed.length} phòng chưa gửi được: ${failed[0]?.error ?? ''}`);
+      showToast('error', 'Chưa chuyển tiếp hết', res.error || `${failed.length} phòng chưa gửi được: ${failed[0]?.error ?? ''}`);
     }
     close();
   }

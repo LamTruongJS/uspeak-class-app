@@ -3,8 +3,9 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
@@ -57,7 +58,7 @@ export default function FeedbackDetailScreen() {
       setText('');
       setImages([]);
     } catch (err) {
-      Alert.alert('Gửi không thành công', getErrorMessage(err));
+      showToast('error', 'Gửi không thành công', getErrorMessage(err));
     }
   }
 

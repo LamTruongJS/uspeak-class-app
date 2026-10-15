@@ -3,13 +3,16 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Linking, Modal, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Modal, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatDateTime } from '@/lib/format';
 import { thumbCacheKey, useMediaToken, resolveMediaUrl, thumbMediaUrl } from '@/lib/media';
 import { useThemeColor } from '@/theme/use-theme-color';
+
+import { showToast } from '@/components/ui/toast';
+import { useActionSheet } from '@/components/ui/action-sheet';
 
 import { useLinkPreview } from './api';
 import { fileIcon, formatSize } from './room-media';
@@ -19,7 +22,7 @@ import type { ChatMessage, ChatMessageImage } from './types';
 import { ZoomableImage } from './zoomable-image';
 
 /** Độ rộng tối đa của bong bóng tin (phần trăm BỀ RỘNG DANH SÁCH) — dùng chung để ảnh không tràn. */
-export const BUBBLE_MAX = 0.74;
+export const BUBBLE_MAX = 0.78;
 
 /** Padding ngang của danh sách tin (`px-3`) và của bong bóng có nền (`px-3.5`). */
 const LIST_PAD = 12;
@@ -102,6 +105,10 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
   const { data: token } = useMediaToken();
   const [viewer, setViewer] = useState<number | null>(null);
   const maxW = Math.min(useBubbleWidth(), 280);
+  // Nền chờ: ảnh tải xong mới có pixel, không có nền thì bong bóng là một mảng TRẮNG to đúng cỡ ảnh
+  // — nhìn như tin nhắn rỗng. Đặt ngay trong `style` cùng chỗ với borderRadius: trên Android, trộn
+  // nền bằng className với borderRadius inline là mất bo góc.
+  const ph = useThemeColor('surface-muted');
 
   const images: (ChatMessageImage & { local?: string })[] = message.local_images?.length
     ? message.local_images.map((local) => ({ local, width: message.width, height: message.height }))
@@ -129,7 +136,7 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
       <Pressable onPress={() => setViewer(0)}>
         <Image
           source={{ uri: tileUri(img, w), cacheKey: thumbCacheKey(img.thumbnail_url || img.file_url, w * 2) }}
-          style={{ width: w, height: h, borderRadius: 14 }}
+          style={{ width: w, height: h, borderRadius: 14, backgroundColor: ph }}
           contentFit="cover"
           transition={120}
         />
@@ -144,7 +151,7 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
           <Pressable key={i} onPress={() => setViewer(i)}>
             <Image
               source={{ uri: tileUri(img, cell), cacheKey: thumbCacheKey(img.thumbnail_url || img.file_url, cell * 2) }}
-              style={{ width: cell, height: cell, borderRadius: 8 }}
+              style={{ width: cell, height: cell, borderRadius: 8, backgroundColor: ph }}
               contentFit="cover"
               transition={120}
             />
@@ -433,17 +440,26 @@ export function VideoContent({ message, onCancelUpload }: { message: ChatMessage
         )}
         {message.pending ? <UploadOverlay percent={message.upload_progress ?? 0} onCancel={onCancelUpload} /> : null}
         {dur ? (
-          <View className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5">
+          // Góc dưới TRÁI — góc dưới phải là chỗ của giờ gửi
+          <View className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5">
             <Text className="text-xs font-semibold text-white">{dur}</Text>
           </View>
         ) : null}
       </Pressable>
-      {message.content && message.content !== '[Video]' && !message.content.startsWith('[') ? (
-        <Text className="pt-1 text-sm text-foreground">{message.content}</Text>
-      ) : null}
+      {videoCaption(message) ? <Text className="pt-1 text-sm text-foreground">{videoCaption(message)}</Text> : null}
       {open && uri ? <VideoPlayerModal uri={uri} onClose={() => setOpen(false)} /> : null}
     </>
   );
+}
+
+/**
+ * Chú thích thật của video — bỏ chữ giữ chỗ mà client tự điền khi gửi video không kèm lời ("Video",
+ * "[Video]", chính tên tệp), không thì dưới mỗi video lại lơ lửng một chữ "Video".
+ */
+function videoCaption(m: ChatMessage) {
+  const c = m.content?.trim();
+  if (!c || c.startsWith('[') || /^video$/i.test(c) || c === m.file_name) return null;
+  return c;
 }
 
 /** Trình phát video toàn màn hình (dùng cả ở kho media của phòng). */
@@ -476,6 +492,7 @@ export function VideoPlayerModal({ uri, onClose }: { uri: string; onClose: () =>
 // (thẻ bài tập / nhắc giờ học / thông báo / nhóm hoạt động: xem cards.tsx)
 
 export function PollContent({ message, myId }: { message: ChatMessage; myId?: string }) {
+  const sheet = useActionSheet();
   const poll = message.poll!;
   const [busy, setBusy] = useState(false);
   const success = useThemeColor('success');
@@ -497,7 +514,7 @@ export function PollContent({ message, myId }: { message: ChatMessage; myId?: st
     setBusy(true);
     const res = await emitWithAck('vote_poll', { room_id: message.room_id, message_id: message._id, option_ids: next });
     setBusy(false);
-    if (!res.success) Alert.alert('Chưa bình chọn được', res.error || 'Vui lòng thử lại.');
+    if (!res.success) showToast('error', 'Chưa bình chọn được', res.error || 'Vui lòng thử lại.');
   }
 
   return (
@@ -540,23 +557,23 @@ export function PollContent({ message, myId }: { message: ChatMessage; myId?: st
         {!poll.is_closed && message.sender?._id === myId ? (
           <Pressable
             onPress={() =>
-              Alert.alert('Kết thúc bình chọn?', 'Sau khi kết thúc sẽ không ai bình chọn thêm được.', [
-                { text: 'Huỷ', style: 'cancel' },
-                {
-                  text: 'Kết thúc',
-                  style: 'destructive',
-                  onPress: async () => {
-                    const res = await emitWithAck('close_poll', { room_id: message.room_id, message_id: message._id });
-                    if (!res.success) Alert.alert('Chưa kết thúc được', res.error);
-                  },
+              sheet.confirm({
+                title: 'Kết thúc bình chọn?',
+                message: 'Sau khi kết thúc sẽ không ai bình chọn thêm được.',
+                label: 'Kết thúc',
+                icon: 'stop-circle-outline',
+                onConfirm: async () => {
+                  const res = await emitWithAck('close_poll', { room_id: message.room_id, message_id: message._id });
+                  if (!res.success) showToast('error', 'Chưa kết thúc được', res.error);
                 },
-              ])
+              })
             }
             className="items-center py-1">
             <Text className="text-sm font-medium text-danger">Kết thúc bình chọn</Text>
           </Pressable>
         ) : null}
       </View>
+      {sheet.sheet}
     </View>
   );
 }
@@ -575,7 +592,7 @@ function AddPollOption({ message }: { message: ChatMessage }) {
     const res = await emitWithAck('add_poll_option', { room_id: message.room_id, message_id: message._id, text: value });
     setBusy(false);
     if (!res.success) {
-      Alert.alert('Chưa thêm được', res.error);
+      showToast('error', 'Chưa thêm được', res.error);
       return;
     }
     setText('');

@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { StateView } from '@/components/ui/state-view';
+import { STAFF_DASHBOARD_3D_ICONS } from '@/constants/three-d-icons';
 import { api, getErrorMessage } from '@/lib/api/client';
 import { WEEKDAY_SHORT } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 import { AreaChart } from './area-chart';
+import { DashboardHeader } from './dashboard-header';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 export type DashboardPeriod = 'day' | 'week' | 'month' | 'year';
@@ -100,28 +102,18 @@ export function StaffDashboard({
   return (
     <View className="gap-4">
       {/* ── Lời chào + 3 số nhanh ── */}
-      <LinearGradient
-        colors={['#0f172a', '#1e293b', '#0f172a']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 20, overflow: 'hidden' }}>
-        <View className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand opacity-20" />
-        <View className="absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-info opacity-15" />
-        <View className="gap-4 p-5">
-          <View>
-            <Text className="text-sm text-white/60">{greeting(hour)} 👋</Text>
-            <Text className="text-2xl font-extrabold text-white" numberOfLines={1}>
-              {user?.name || 'Người dùng'}
-            </Text>
-            <Text className="mt-1 text-sm text-white/60">Tổng quan hoạt động toàn hệ thống Uspeak.</Text>
-          </View>
-          <View className="flex-row gap-2">
-            <HeroPill value={s ? String(s.submittedToday) : '–'} label="Nộp hôm nay" color="#ffffff" />
-            <HeroPill value={s ? String(s.completedToday) : '–'} label="Nhận xét hôm nay" color="#34d399" />
-            <HeroPill value={s ? `${s.completionRate}%` : '–'} label="Tỷ lệ hoàn thành" color="#fbbf24" />
-          </View>
+      <DashboardHeader
+        user={user}
+        greeting={greeting(hour)}
+        eyebrow="Tổng quan hệ thống"
+        description="Theo dõi hoạt động toàn hệ thống Uspeak"
+        icon="analytics">
+        <View className="flex-row gap-2">
+          <HeroPill value={s ? String(s.submittedToday) : '–'} label="Nộp hôm nay" color="#ffffff" />
+          <HeroPill value={s ? String(s.completedToday) : '–'} label="Nhận xét hôm nay" color="#34d399" />
+          <HeroPill value={s ? `${s.completionRate}%` : '–'} label="Tỷ lệ hoàn thành" color="#fbbf24" />
         </View>
-      </LinearGradient>
+      </DashboardHeader>
 
       {shortcuts}
 
@@ -139,18 +131,18 @@ export function StaffDashboard({
         <>
           <SectionTitle icon="pulse" title="Tổng quan bài nộp" />
           <Grid>
-            <Stat icon="send" tone="info" label="Tổng bài nộp" sub="trên hệ thống" value={s.totalSubmissions} />
-            <Stat icon="checkmark-circle" tone="success" label="Đã nhận xét" sub="bài hoàn thành" value={s.totalCompleted} />
-            <Stat icon="document-text" tone="violet" label="Bài tập" sub="đã xuất bản" value={s.totalAssignments} />
-            <Stat icon="timer" tone="warning" label="TB thời gian" sub="mỗi bài nhận xét" value={formatDuration(s.avgGradingTimeSeconds)} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.totalSubmissions} tone="info" label="Tổng bài nộp" sub="trên hệ thống" value={s.totalSubmissions} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.completedReviews} tone="success" label="Đã nhận xét" sub="bài hoàn thành" value={s.totalCompleted} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.publishedAssignments} tone="violet" label="Bài tập" sub="đã xuất bản" value={s.totalAssignments} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.averageGradingTime} tone="warning" label="TB thời gian" sub="mỗi bài nhận xét" value={formatDuration(s.avgGradingTimeSeconds)} />
           </Grid>
 
           <SectionTitle icon="bar-chart" title="Trạng thái hàng đợi" />
           <Grid>
-            <Stat icon="file-tray" tone="warning" label="Chờ nhận xét" sub="trong hàng đợi" value={s.totalPending} />
-            <Stat icon="time" tone="info" label="Đang nhận xét" sub="bài đang được giữ" value={s.totalClaimed} />
-            <Stat icon="eye" tone="violet" label="Chờ review" sub="bài chờ duyệt" value={s.totalWaitingReview} />
-            <Stat icon="refresh-circle" tone="danger" label="Nhận xét lại" sub="yêu cầu regrade" value={s.totalRegradeRequested} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.pendingGrading} tone="warning" label="Chờ nhận xét" sub="trong hàng đợi" value={s.totalPending} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.activeGrading} tone="info" label="Đang nhận xét" sub="bài đang được giữ" value={s.totalClaimed} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.waitingReview} tone="violet" label="Chờ review" sub="bài chờ duyệt" value={s.totalWaitingReview} />
+            <Stat icon3d={STAFF_DASHBOARD_3D_ICONS.regradeRequest} tone="danger" label="Nhận xét lại" sub="yêu cầu regrade" value={s.totalRegradeRequested} />
           </Grid>
 
           <View className="flex-row gap-2">
@@ -219,11 +211,17 @@ const TONE_TEXT: Record<Tone, string> = {
 
 function HeroPill({ value, label, color }: { value: string; label: string; color: string }) {
   return (
-    <View className="flex-1 items-center rounded-xl border border-white/10 bg-white/10 px-1.5 py-2.5">
-      <Text className="text-xl font-extrabold" style={{ color }}>
+    <View className="flex-1 items-center rounded-xl border border-white/25 bg-black/30 px-1.5 py-2.5">
+      <Text
+        className="text-xl font-extrabold"
+        style={{ color, textShadowColor: 'rgba(0, 0, 0, 0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>
         {value}
       </Text>
-      <Text className="text-center text-[9px] font-medium uppercase leading-3 tracking-wide text-white/60">{label}</Text>
+      <Text
+        className="text-center text-[9px] font-bold uppercase leading-3 tracking-wide text-white"
+        style={{ textShadowColor: 'rgba(0, 0, 0, 0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -242,14 +240,32 @@ function Grid({ children }: { children: ReactNode }) {
   return <View className="flex-row flex-wrap justify-between gap-y-2.5">{children}</View>;
 }
 
-function Stat({ icon, tone, label, sub, value }: { icon: IconName; tone: Tone; label: string; sub: string; value: number | string }) {
+function Stat({
+  icon,
+  icon3d,
+  tone,
+  label,
+  sub,
+  value,
+}: {
+  icon?: IconName;
+  icon3d?: number;
+  tone: Tone;
+  label: string;
+  sub: string;
+  value: number | string;
+}) {
   const color = useThemeColor(tone);
   return (
     <View className="w-[48.8%] gap-2 rounded-2xl border border-border bg-surface p-3">
       <View className="flex-row items-center justify-between">
-        <View className={`h-7 w-7 items-center justify-center rounded-lg ${TONE_BG[tone]}`}>
-          <Ionicons name={icon} size={15} color={color} />
-        </View>
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 38, height: 38 }} contentFit="contain" accessible={false} />
+        ) : (
+          <View className={`h-7 w-7 items-center justify-center rounded-lg ${TONE_BG[tone]}`}>
+            <Ionicons name={icon ?? 'ellipse'} size={15} color={color} />
+          </View>
+        )}
         <Text className={`text-2xl font-extrabold ${TONE_TEXT[tone]}`}>
           {typeof value === 'number' ? value.toLocaleString('vi-VN') : value}
         </Text>

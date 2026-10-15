@@ -3,15 +3,20 @@ import { router } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { isAxiosError } from 'axios';
 import { memo, useDeferredValue, useEffect, useMemo, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { StateView } from '@/components/ui/state-view';
 import { roomTime } from '@/features/chat/format';
 import { getErrorMessage } from '@/lib/api/client';
 import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
+import { useMyPermissionCodes } from '@/features/chat/api';
+import { featuresForUser } from '@/navigation/features';
+import { openFeature } from '@/navigation/open-feature';
+import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 import { deadlineUrgency, gradingApi, useGradingQueue, type GradingQueueItem, type GradingStatusFilter, type Urgency } from './grading-api';
@@ -22,7 +27,6 @@ const FILTERS: { value: GradingStatusFilter; label: string }[] = [
   { value: 'all', label: 'Tất cả' },
   { value: 'submitted', label: 'Chờ nhận' },
   { value: 'reassigned', label: 'Chờ nhận lại' },
-  { value: 'claimed', label: 'Đang nhận xét' },
 ];
 
 const TYPE_ICON: Record<string, { icon: IconName; color: string }> = {
@@ -39,14 +43,13 @@ const fmt = (iso: string) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 };
 
-/** Mở trang nhận xét bài trên web (video, rubric, ghi âm nhận xét… cần màn hình lớn). */
-/** Màn nhận xét trong app (src/app/grading/[id].tsx) — trước đây mở bản web. */
+/** Mở thẳng màn nhận xét trong app. Bài chưa được giữ sẽ được claim ngầm ngay trước khi chuyển trang. */
 const openGrading = (submissionId: string) => router.push({ pathname: '/grading/[id]', params: { id: submissionId } });
 
 /**
  * Hàng chờ nhận xét — bản mobile của web /assignments/grading: bài GẤP (hạn nhận xét < 12 giờ
- * hoặc quá hạn) lên đầu và phải nhận trước, như web. Nhận bài ngay trên app; phần nhận xét
- * (xem video, chấm theo rubric, ghi âm) mở trang web vì cần màn hình lớn.
+ * hoặc quá hạn) lên đầu và phải nhận xét trước, như web. Chạm card mở thẳng màn nhận xét;
+ * thao tác claim bắt buộc của backend diễn ra ngầm, không còn bước "Nhận bài" trên UI.
  */
 export function GradingQueueScreen() {
   const insets = useSafeAreaInsets();
@@ -57,7 +60,7 @@ export function GradingQueueScreen() {
   const [input, setInput] = useState('');
   const search = useDeferredValue(input.trim());
   const [debounced, setDebounced] = useState('');
-  const [claiming, setClaiming] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
@@ -84,31 +87,31 @@ export function GradingQueueScreen() {
     });
   }, [q.data, now]);
 
-  async function claim(item: GradingQueueItem) {
-    if (claiming) return;
-    if (urgentTotal > 0 && deadlineUrgency(item.grading_deadline, now) === 'normal') {
-      Alert.alert('Còn bài gấp', `Vui lòng nhận xét ${urgentTotal} bài gấp (sắp hết hạn nhận xét) trước.`);
+  async function openForGrading(item: GradingQueueItem) {
+    if (opening) return;
+    if (item.status !== 'claimed' && urgentTotal > 0 && deadlineUrgency(item.grading_deadline, now) === 'normal') {
+      showToast('warning', 'Còn bài gấp', `Vui lòng nhận xét ${urgentTotal} bài gấp (sắp hết hạn nhận xét) trước.`);
       return;
     }
-    setClaiming(item._id);
+    if (item.status === 'claimed') {
+      openGrading(item._id);
+      return;
+    }
+    setOpening(item._id);
     try {
       await gradingApi.claim(item._id);
-      void q.refetch();
-      Alert.alert('Đã nhận bài', `Bài của ${item.student_name} đã được giữ cho bạn. Mở trang nhận xét ngay?`, [
-        { text: 'Để sau', style: 'cancel' },
-        { text: 'Nhận xét ngay', onPress: () => openGrading(item._id) },
-      ]);
+      openGrading(item._id);
     } catch (err) {
       const conflict =
         isAxiosError(err) && (err.response?.status === 409 || (err.response?.data as { error?: string })?.error === 'ALREADY_CLAIMED');
       if (conflict) {
-        Alert.alert('Bài đã có người nhận', 'Bài này vừa được người khác nhận nhận xét. Danh sách sẽ được cập nhật.');
+        showToast('info', 'Bài đang được nhận xét', 'Bài này vừa được người khác mở nhận xét. Danh sách sẽ được cập nhật.');
         void q.refetch();
       } else {
-        Alert.alert('Chưa nhận được bài', getErrorMessage(err));
+        showToast('error', 'Chưa mở được bài', getErrorMessage(err));
       }
     } finally {
-      setClaiming(null);
+      setOpening(null);
     }
   }
 
@@ -126,6 +129,7 @@ export function GradingQueueScreen() {
           </Text>
         </View>
       ) : null}
+      <GradingLinks />
     </View>
   );
 
@@ -134,7 +138,7 @@ export function GradingQueueScreen() {
       <View className="gap-3 px-4 pb-1" style={{ paddingTop: insets.top + 12 }}>
         <View>
           <Text className="text-[28px] font-bold text-foreground">Nhận xét bài</Text>
-          <Text className="text-sm text-muted">Nhận bài trong hàng chờ để bắt đầu nhận xét</Text>
+          <Text className="text-sm text-muted">Chọn bài trong hàng chờ để bắt đầu nhận xét</Text>
         </View>
         <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3">
           <Ionicons name="search" size={18} color={muted} />
@@ -154,7 +158,8 @@ export function GradingQueueScreen() {
             <ActivityIndicator size="small" color={brand} />
           ) : null}
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 grow-0" contentContainerClassName="gap-2 px-4">
+        {/* Xuống dòng chứ không cuộn ngang — bộ lọc cuối không bị khuất ngoài mép màn hình */}
+        <View className="flex-row flex-wrap gap-2">
           {FILTERS.map((f) => {
             const on = f.value === status;
             return (
@@ -166,7 +171,7 @@ export function GradingQueueScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
 
       {q.isLoading ? (
@@ -206,14 +211,38 @@ export function GradingQueueScreen() {
               now={now}
               token={token?.media_token}
               muted={muted}
-              claiming={claiming === item._id}
-              blocked={urgentTotal > 0 && deadlineUrgency(item.grading_deadline, now) === 'normal'}
-              onClaim={() => claim(item)}
-              onOpen={() => openGrading(item._id)}
+              opening={opening === item._id}
+              blocked={item.status !== 'claimed' && urgentTotal > 0 && deadlineUrgency(item.grading_deadline, now) === 'normal'}
+              onPress={() => void openForGrading(item)}
             />
           )}
         />
       )}
+    </View>
+  );
+}
+
+/**
+ * Lối tắt sang các màn chấm bài khác (nhận xét lại, yêu cầu làm lại, lịch sử, thanh toán…).
+ * Màn này là tab chính của người nhận xét mà trước đây không có đường sang đâu cả — phải quay về
+ * Trang chủ mới bấm được. Danh sách lọc theo ĐÚNG QUYỀN của tài khoản, như menu bên web.
+ */
+function GradingLinks() {
+  const role = useAuthStore((s) => s.user?.role_code);
+  const permissions = useMyPermissionCodes();
+  const items = featuresForUser(role, permissions.data).filter((f) => f.group === 'grading' && f.key !== 'grading' && f.status === 'ready');
+  if (!items.length) return null;
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {items.map((f) => (
+        <Pressable
+          key={f.key}
+          onPress={() => openFeature(f)}
+          className="flex-row items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 active:opacity-70">
+          <Ionicons name={f.icon} size={14} color="#64748b" />
+          <Text className="text-[13px] font-medium text-foreground">{f.label}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -239,19 +268,17 @@ const QueueCard = memo(function QueueCard({
   now,
   token,
   muted,
-  claiming,
+  opening,
   blocked,
-  onClaim,
-  onOpen,
+  onPress,
 }: {
   item: GradingQueueItem;
   now: number;
   token?: string;
   muted: string;
-  claiming: boolean;
+  opening: boolean;
   blocked: boolean;
-  onClaim: () => void;
-  onOpen: () => void;
+  onPress: () => void;
 }) {
   const urgency = deadlineUrgency(item.grading_deadline, now);
   const t = TYPE_ICON[item.assignment_type?.code ?? ''] ?? { icon: 'document-text' as IconName, color: '#6b7280' };
@@ -259,7 +286,12 @@ const QueueCard = memo(function QueueCard({
   const stripe = urgency === 'overdue' ? 'bg-danger' : urgency === 'urgent' ? 'bg-warning' : 'bg-border';
 
   return (
-    <View className="flex-row overflow-hidden rounded-2xl border border-border bg-surface">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Nhận xét bài ${item.assignment_title} của ${item.student_name}`}
+      onPress={onPress}
+      disabled={opening}
+      className="flex-row overflow-hidden rounded-2xl border border-border bg-surface active:opacity-85">
       <View className={`w-1 ${stripe}`} />
       <View className="flex-1 gap-2.5 p-3.5">
         {/* Bài tập */}
@@ -308,32 +340,18 @@ const QueueCard = memo(function QueueCard({
         </View>
 
         {/* Hành động */}
-        <View className="flex-row gap-2">
-          {claimed ? (
-            <Pressable
-              onPress={onOpen}
-              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-surface-muted py-2.5 active:opacity-70">
-              <Ionicons name="open-outline" size={16} color={muted} />
-              <Text className="text-sm font-semibold text-foreground">Mở trang nhận xét</Text>
-            </Pressable>
+        <View className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2.5 ${blocked ? 'bg-surface-muted' : 'bg-brand'}`}>
+          {opening ? (
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Pressable
-              onPress={onClaim}
-              disabled={claiming}
-              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-2.5 active:opacity-80 ${blocked ? 'bg-surface-muted' : 'bg-brand'}`}>
-              {claiming ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name={blocked ? 'lock-closed' : 'hand-left'} size={15} color={blocked ? muted : '#fff'} />
-              )}
-              <Text className={`text-sm font-semibold ${blocked ? 'text-muted' : 'text-on-brand'}`}>
-                {blocked ? 'Nhận bài gấp trước' : 'Nhận bài'}
-              </Text>
-            </Pressable>
+            <Ionicons name={blocked ? 'lock-closed' : 'create-outline'} size={16} color={blocked ? muted : '#fff'} />
           )}
+          <Text className={`text-sm font-semibold ${blocked ? 'text-muted' : 'text-on-brand'}`}>
+            {opening ? 'Đang mở...' : blocked ? 'Nhận xét bài gấp trước' : 'Nhận xét bài'}
+          </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 });
 

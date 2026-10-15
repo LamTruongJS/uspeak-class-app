@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import {
   chatApi,
@@ -130,7 +131,7 @@ export default function RoomInfoScreen() {
       await chatApi.setNotificationsMuted(roomId, on);
     } catch (err) {
       patchRoom(roomId, (r) => ({ ...r, notifications_muted: !on }));
-      Alert.alert('Chưa lưu được', getErrorMessage(err));
+      showToast('error', 'Chưa lưu được', getErrorMessage(err));
     } finally {
       setSavingMute(false);
     }
@@ -144,7 +145,7 @@ export default function RoomInfoScreen() {
       void rooms.refetch();
       router.push({ pathname: '/chat/[roomId]', params: { roomId: dm._id } });
     } catch (err) {
-      Alert.alert('Không nhắn riêng được', getErrorMessage(err));
+      showToast('error', 'Không nhắn riêng được', getErrorMessage(err));
     } finally {
       setOpening(null);
     }
@@ -161,7 +162,7 @@ export default function RoomInfoScreen() {
       const url = out.data.avatar_url;
       patchRoom(roomId, (r) => ({ ...r, avatar_url: url }));
     } catch (err) {
-      Alert.alert('Chưa đổi được ảnh', getErrorMessage(err));
+      showToast('error', 'Chưa đổi được ảnh', getErrorMessage(err));
     } finally {
       setSavingAvatar(false);
     }
@@ -179,7 +180,7 @@ export default function RoomInfoScreen() {
       patchRoom(roomId, (r) => ({ ...r, name }));
       setNameDraft(null);
     } catch (err) {
-      Alert.alert('Chưa đổi được tên', getErrorMessage(err));
+      showToast('error', 'Chưa đổi được tên', getErrorMessage(err));
     } finally {
       setSavingName(false);
     }

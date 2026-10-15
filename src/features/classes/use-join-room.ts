@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { api, getErrorMessage } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -27,7 +28,7 @@ export function useJoinRoom() {
     const phone = user?.phone || '';
     const email = user?.email || '';
     if (!phone && !email) {
-      Alert.alert('Thiếu thông tin', 'Không tìm thấy số điện thoại hoặc email. Vui lòng cập nhật thông tin cá nhân.');
+      showToast('warning', 'Thiếu thông tin', 'Không tìm thấy số điện thoại hoặc email. Vui lòng cập nhật thông tin cá nhân.');
       return;
     }
 
@@ -48,18 +49,15 @@ export function useJoinRoom() {
       }
 
       if (!url) {
-        Alert.alert(
-          'Chưa vào được phòng học',
-          data.message ||
+        showToast('error', 'Chưa vào được phòng học', data.message ||
             (data.found
               ? 'Buổi học hiện chưa có link Zoom. Vui lòng thử lại gần giờ học.'
-              : 'Không tìm thấy thông tin học viên trong lớp học này.'),
-        );
+              : 'Không tìm thấy thông tin học viên trong lớp học này.'));
         return;
       }
       await Linking.openURL(url);
     } catch (err) {
-      Alert.alert('Không vào được phòng học', getErrorMessage(err));
+      showToast('error', 'Không vào được phòng học', getErrorMessage(err));
     } finally {
       busy.current = false;
       setJoiningCode(null);

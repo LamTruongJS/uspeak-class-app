@@ -2,7 +2,9 @@ import { api, type ApiResponse } from '@/lib/api/client';
 import { uploadMultipart } from '@/lib/api/upload';
 import { tokenStorage } from '@/lib/auth/token-storage';
 
-import type { LoginCredentials, LoginResult, User } from './types';
+import type { LoginCredentials, LoginResult, PaymentInfo, User } from './types';
+
+export type { PaymentInfo };
 
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<LoginResult> {
@@ -13,6 +15,16 @@ export const authApi = {
   async getProfile(): Promise<User> {
     const res = await api.get<ApiResponse<User>>('/auth/profile');
     return res.data.data;
+  },
+
+  /**
+   * Sửa hồ sơ: tên, số điện thoại, thông tin nhận tiền. class-be chuyển tiếp sang CRM rồi trả về
+   * user mới — nhớ đẩy vào store, không thì màn Tài khoản vẫn hiện số cũ tới khi đăng nhập lại.
+   */
+  async updateProfile(body: { name?: string; phone?: string; payment_info?: PaymentInfo }): Promise<Partial<User> | null> {
+    const res = await api.patch<ApiResponse<User> | User>('/auth/profile', body);
+    const data = res.data as ApiResponse<User> & User;
+    return data?.data ?? data ?? null;
   },
 
   async switchRole(role_code: string): Promise<LoginResult> {

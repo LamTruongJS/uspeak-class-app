@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { StateView } from '@/components/ui/state-view';
@@ -47,7 +48,7 @@ export default function ForumPostScreen() {
       setText('');
       setReplyTo(null);
     } catch (err) {
-      Alert.alert('Không gửi được bình luận', getErrorMessage(err));
+      showToast('error', 'Không gửi được bình luận', getErrorMessage(err));
     }
   }
 

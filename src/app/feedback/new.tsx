@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { ImagesEditor, type PickedImage } from '@/features/assignments/submit/images-editor';
@@ -17,7 +18,8 @@ export default function NewFeedbackScreen() {
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
 
-  const [type, setType] = useState<FeedbackType>('BUG');
+  const params = useLocalSearchParams<{ type?: FeedbackType }>();
+  const [type, setType] = useState<FeedbackType>(params.type && FEEDBACK_TYPES.some((t) => t.value === params.type) ? params.type : 'BUG');
   const [message, setMessage] = useState('');
   const [images, setImages] = useState<PickedImage[]>([]);
   const submit = useSubmitFeedback();
@@ -25,7 +27,7 @@ export default function NewFeedbackScreen() {
   async function send() {
     const text = message.trim();
     if (!text) {
-      Alert.alert('Chưa có nội dung', 'Mô tả giúp Uspeak vấn đề bạn gặp hoặc điều bạn muốn góp ý.');
+      showToast('warning', 'Chưa có nội dung', 'Mô tả giúp Uspeak vấn đề bạn gặp hoặc điều bạn muốn góp ý.');
       return;
     }
     try {
@@ -40,7 +42,7 @@ export default function NewFeedbackScreen() {
       if (id) router.replace({ pathname: '/feedback/[id]', params: { id } });
       else router.back();
     } catch (err) {
-      Alert.alert('Gửi không thành công', getErrorMessage(err));
+      showToast('error', 'Gửi không thành công', getErrorMessage(err));
     }
   }
 

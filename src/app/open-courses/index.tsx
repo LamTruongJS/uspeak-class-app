@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import {
   courseSearchText,
@@ -38,6 +39,7 @@ export default function OpenCoursesScreen() {
   const [courseId, setCourseId] = useState('all');
   const [kind, setKind] = useState<'all' | 'promo' | 'zoom' | 'elearning'>('all');
   const [sort, setSort] = useState<OpenCourseSort>('newest');
+  const menu = useActionSheet();
 
   const all = useMemo(() => query.data ?? [], [query.data]);
   // Khoá học kèm số lớp (nhiều lớp nhất lên trước) — hàng chip lọc theo khoá
@@ -71,22 +73,11 @@ export default function OpenCoursesScreen() {
     setSearch('');
   };
 
-  const pickSort = () => {
-    const labels = SORTS.map((s) => s.label);
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...labels, 'Huỷ'], cancelButtonIndex: labels.length, title: 'Sắp xếp' },
-        (i) => {
-          if (i < SORTS.length) setSort(SORTS[i].value);
-        },
-      );
-    } else {
-      Alert.alert('Sắp xếp', undefined, [
-        ...SORTS.map((s) => ({ text: s.label, onPress: () => setSort(s.value) })),
-        { text: 'Huỷ', style: 'cancel' as const },
-      ]);
-    }
-  };
+  const pickSort = () =>
+    menu.show({
+      title: 'Sắp xếp',
+      actions: SORTS.map((s) => ({ label: s.label, selected: s.value === sort, onPress: () => setSort(s.value) })),
+    });
 
   const header = (
     <View className="gap-3 pb-3">
@@ -200,6 +191,7 @@ export default function OpenCoursesScreen() {
           )}
         />
       )}
+      {menu.sheet}
     </View>
   );
 }

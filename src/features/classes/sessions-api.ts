@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
 
@@ -7,7 +7,8 @@ import { api } from '@/lib/api/client';
  * class-be chuyển tiếp sang CRM. Kiểu dữ liệu và cách gộp người tham gia copy từ uspeak-class-fe
  * classes/[classId]/AttendanceTab.tsx để app và web ra cùng con số.
  *
- * App chỉ XEM. Sửa điểm danh / lý do vắng / cấu hình Zoom vẫn làm trên web (nút "Quản lý trên web").
+ * Nhân sự quản lý ngay trong app (15/10/2026): đổi có mặt / vắng, lý do vắng, tạo / sửa / xoá buổi học —
+ * cùng API với web (AttendanceTab). Học viên chỉ xem.
  */
 
 export interface SessionParticipant {
@@ -36,6 +37,9 @@ export interface AbsentStudent {
 export interface ClassSessionItem {
   _id: string;
   topic: string;
+  zoom_meeting_id?: string;
+  zoom_pass?: string;
+  zoom_key_id?: string | { _id?: string } | null;
   date?: string | null;
   session_number?: number;
   duration_minutes?: number;
@@ -69,7 +73,7 @@ export const ROLE_LABEL: Record<string, string> = {
   not_in_crm: 'Không có trong hệ thống',
 };
 
-const participantUserId = (p: { user_id?: SessionParticipant['user_id'] }) =>
+export const participantUserId = (p: { user_id?: SessionParticipant['user_id'] }) =>
   typeof p.user_id === 'object' && p.user_id ? p.user_id._id : (p.user_id as string | undefined);
 
 const timeValue = (value?: string) => {
@@ -203,21 +207,154 @@ export function formatDuration(seconds: number) {
   return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 }
 
-/** Buổi học của lớp, chỉ buổi đã tới giờ (buổi tương lai xem ở Lịch trình) — mới nhất lên đầu. */
-export function useClassSessions(classId: string, enabled = true) {
+/**
+ * Buổi học của lớp — mới nhất lên đầu. Mặc định chỉ buổi đã tới giờ (học viên xem buổi tương lai ở
+ * Lịch trình); `all` = cả buổi sắp tới (nhân sự tạo trước buổi để cấu hình Zoom).
+ */
+export function useClassSessions(classId: string, enabled = true, all = false) {
   return useQuery({
     queryKey: ['classes', 'sessions', classId],
     enabled: enabled && !!classId,
     staleTime: 60_000,
+    select: (list: ClassSessionItem[]) => {
+      if (all) return list;
+      const now = Date.now();
+      return list.filter((s) => {
+        const t = s.date ? new Date(s.date).getTime() : NaN;
+        return Number.isFinite(t) && t <= now;
+      });
+    },
     queryFn: async () => {
       const res = await api.get<{ data: ClassSessionItem[] }>(`/classes/${classId}/sessions`);
-      const now = Date.now();
-      return (res.data.data ?? [])
-        .filter((s) => {
-          const t = s.date ? new Date(s.date).getTime() : NaN;
-          return Number.isFinite(t) && t <= now;
-        })
-        .sort((a, b) => (b.session_number || 0) - (a.session_number || 0));
+      return (res.data.data ?? []).sort(
+        (a, b) => (b.session_number || 0) - (a.session_number || 0) || (b.date ? new Date(b.date).getTime() : 0) - (a.date ? new Date(a.date).getTime() : 0),
+      );
+    },
+  });
+}
+
+// ─── Quản lý (nhân sự) ──────────────────────────────────────────────────────
+
+export interface AbsenceReasonItem {
+  _id: string;
+  session_id: string;
+  absent_user_id: string;
+  reason: string;
+  requested_by_name?: string;
+  marked_by_name?: string;
+}
+
+/** Lý do vắng (học viên xin qua chat hoặc nhân sự nhập tay) — key `sessionId:userId`. */
+export function useAbsenceReasons(classId: string) {
+  return useQuery({
+    queryKey: ['chat', 'absence-reasons', classId],
+    enabled: !!classId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const list = (await api.get<{ data: AbsenceReasonItem[] }>('/chat/absence-reasons', { params: { class_id: classId } })).data.data ?? [];
+      return new Map(list.map((r) => [`${r.session_id}:${r.absent_user_id}`, r]));
+    },
+  });
+}
+
+export function useSessionAdmin(classId: string) {
+  const qc = useQueryClient();
+  const key = ['classes', 'sessions', classId];
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: key }), qc.invalidateQueries({ queryKey: ['classes', 'staff'] })]);
+
+  /** Đổi có mặt / vắng — cập nhật ngay trên máy rồi mới gọi server (như web), lỗi thì trả lại. */
+  const toggle = useMutation({
+    mutationFn: (v: { sessionId: string; userId: string; isPresent: boolean }) =>
+      api.patch(`/classes/sessions/${v.sessionId}/attendance`, { user_id: v.userId, is_present: v.isPresent }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ClassSessionItem[]>(key);
+      qc.setQueryData<ClassSessionItem[]>(key, (list) =>
+        list?.map((s) =>
+          s._id !== v.sessionId
+            ? s
+            : {
+                ...s,
+                participants: s.participants.map((p) => (participantUserId(p) === v.userId ? { ...p, is_present: v.isPresent } : p)),
+                absent_students: s.absent_students?.map((a) => (a._id === v.userId ? { ...a, is_present: v.isPresent } : a)),
+              },
+        ),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
+    onSettled: () => void refresh(),
+  });
+
+  const reason = useMutation({
+    mutationFn: async (v: { id?: string; sessionId: string; userId: string; reason: string }) => {
+      if (v.id) await api.patch(`/chat/absence-reasons/${v.id}`, { reason: v.reason });
+      else await api.post('/chat/absence-reasons/manual', { class_id: classId, session_id: v.sessionId, absent_user_id: v.userId, reason: v.reason });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'absence-reasons', classId] }),
+  });
+
+  const save = useMutation({
+    mutationFn: async (v: { sessionId?: string; data: SessionForm }) => {
+      if (v.sessionId) await api.patch(`/classes/sessions/${v.sessionId}/metadata`, v.data);
+      else await api.post(`/classes/${classId}/sessions`, v.data);
+    },
+    onSuccess: () => void refresh(),
+  });
+
+  const remove = useMutation({
+    mutationFn: (sessionId: string) => api.delete(`/classes/sessions/${sessionId}`),
+    onSuccess: () => void refresh(),
+  });
+
+  return { toggle, reason, save, remove };
+}
+
+export interface SessionForm {
+  topic?: string;
+  date: string;
+  zoom_meeting_id: string;
+  zoom_pass?: string;
+  zoom_join_url?: string;
+  zoom_key_id?: string;
+  teacher_id?: string;
+}
+
+export interface ZoomKey {
+  _id: string;
+  label?: string;
+  account_id?: string;
+  client_id?: string;
+}
+
+/** Tên hiển thị tài khoản Zoom — giống web: `label`, không có thì "account_id (client_id 8 ký tự…)". */
+export const zoomKeyLabel = (k: ZoomKey) => k.label || `${k.account_id ?? ''} (${String(k.client_id ?? '').slice(0, 8)}…)`;
+
+export function useZoomKeys(enabled: boolean) {
+  return useQuery({
+    queryKey: ['classes', 'zoom-keys'],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const res = (await api.get<{ data?: ZoomKey[] } | ZoomKey[]>('/classes/zoom-keys')).data;
+      return (Array.isArray(res) ? res : res.data) ?? [];
+    },
+  });
+}
+
+export function useTeacherOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: ['permissions', 'teachers'],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const res = (await api.get<unknown>('/permissions/users', { params: { role_codes: 'TE' } })).data as
+        | { _id?: string; id?: string; name?: string; full_name?: string; email?: string }[]
+        | { data?: { _id?: string; id?: string; name?: string; full_name?: string; email?: string }[] };
+      const list = Array.isArray(res) ? res : (res.data ?? []);
+      return list
+        .map((t) => ({ id: t._id || t.id || '', name: t.name || t.full_name || t.email || '' }))
+        .filter((t) => t.id && t.name);
     },
   });
 }

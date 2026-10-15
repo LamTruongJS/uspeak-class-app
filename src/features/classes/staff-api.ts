@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
 
@@ -24,6 +24,10 @@ export interface StaffClassItem {
   active_students: number;
   class_image?: string | null;
   assignment_count?: number;
+  /** Phòng Zoom cố định của lớp — mặc định khi tạo buổi học mới (chỉ GET /classes của nhân sự mới có). */
+  zoom_id?: string;
+  zoom_pass?: string;
+  zoom_key_id?: string | null;
 }
 
 export interface ClassStudentStats {
@@ -39,6 +43,29 @@ export interface ClassStudentStats {
   late_count: number;
   not_submitted_count: number;
   attendance_stats?: { total_sessions: number; attended_sessions: number; attendance_rate: number };
+  /** false = tài khoản đang bị khoá (CRM) */
+  isActive?: boolean;
+  avatar?: string;
+  on_time_count?: number;
+  /** Bài chưa nộp (đã quá hạn hoặc chưa) — dùng cho Báo cáo lớp */
+  missing_assignments?: { _id: string; title: string; assignment_type: string; submission_deadline: string | null; session_number: string | null }[];
+}
+
+export interface ClassGroupUser {
+  _id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+/** Nhóm thảo luận của lớp (phân từ CRM) — trả kèm trong GET /classes/:id/detail */
+export interface ClassGroup {
+  _id: string;
+  group_name: string;
+  assistant: ClassGroupUser | null;
+  student_ids: ClassGroupUser[];
+  max_students: number;
 }
 
 export interface ClassDetailStats {
@@ -48,6 +75,7 @@ export interface ClassDetailStats {
   total_completed: number;
   completion_rate: number;
   average_score: number | null;
+  assignments_by_type?: Record<string, number>;
 }
 
 export const STATUS_META: Record<ClassStatus, { label: string; tone: 'success' | 'warning' | 'info' | 'neutral' }> = {
@@ -84,10 +112,33 @@ export function useStaffClassDetail(classId: string) {
     queryKey: ['classes', 'staff', 'detail', classId],
     queryFn: async () =>
       (
-        await api.get<{ stats: ClassDetailStats; students: ClassStudentStats[] }>(`/classes/${classId}/detail`, {
+        await api.get<{ stats: ClassDetailStats; students: ClassStudentStats[]; groups?: ClassGroup[] }>(`/classes/${classId}/detail`, {
           params: { page: 1, limit: 500 },
         })
       ).data,
     staleTime: 60_000,
   });
+}
+
+/** Khoá / mở khoá tài khoản (quyền STUDENT_BLOCK) và bảo lưu học viên (STUDENT_DEFERRAL_CREATE) — như menu ⋯ của web. */
+export function useStudentAdmin(classId: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['classes', 'staff', 'detail', classId] });
+  const block = useMutation({
+    mutationFn: async (v: { userId: string; active: boolean }) => {
+      await api.patch(`/classes/students/${v.userId}/block`, { isActive: v.active });
+    },
+    onSuccess: () => void refresh(),
+  });
+  const defer = useMutation({
+    mutationFn: async (v: { userId: string; months: number; reason: string }) => {
+      const start = new Date();
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + v.months);
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      await api.post(`/classes/students/${v.userId}/deferral`, { class_id: classId, reason: v.reason, start_date: fmt(start), end_date: fmt(end) });
+    },
+    onSuccess: () => void refresh(),
+  });
+  return { block, defer };
 }

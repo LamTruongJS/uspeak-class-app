@@ -3,9 +3,10 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import * as WebBrowser from 'expo-web-browser';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { showToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HtmlView } from '@/components/ui/html-view';
@@ -91,7 +92,7 @@ export default function ElearningItemScreen() {
         is_completed: !node.is_completed,
       });
     } catch (err) {
-      Alert.alert('Không lưu được tiến độ', getErrorMessage(err));
+      showToast('error', 'Không lưu được tiến độ', getErrorMessage(err));
     }
   }
 
@@ -302,7 +303,7 @@ function Attachments({ items }: { items?: ElearningAttachment[] }) {
       const url = await fetchAttachmentUrl(att.s3_key);
       await Linking.openURL(url);
     } catch (err) {
-      Alert.alert('Không mở được tệp', getErrorMessage(err));
+      showToast('error', 'Không mở được tệp', getErrorMessage(err));
     } finally {
       setOpening(null);
     }

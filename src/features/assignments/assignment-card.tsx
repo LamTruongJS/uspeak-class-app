@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { memo, useState, type ComponentProps } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { ASSIGNMENT_3D_ICONS } from '@/constants/three-d-icons';
 import { formatTime, isSameDay, addDays, startOfDay } from '@/lib/format';
 import { useThemeColor, type ThemeColor } from '@/theme/use-theme-color';
 
@@ -24,17 +26,20 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 /** Icon + màu theo loại bài (đoán theo mã / nhãn loại bài của web). */
 export function assignmentKind(a: Pick<StudentAssignmentItem, 'assignment_type' | 'shadowing'>): {
   icon: IconName;
+  icon3d?: number;
   color: ThemeColor;
   box: string;
 } {
   const t = `${a.assignment_type?.code ?? ''} ${a.assignment_type?.label ?? ''}`.toLowerCase();
-  if (a.shadowing || t.includes('shadow') || t.includes('dictation')) return { icon: 'headset', color: 'violet', box: 'bg-violet-soft' };
+  if (a.shadowing || t.includes('shadow') || t.includes('dictation'))
+    return { icon: 'headset', icon3d: ASSIGNMENT_3D_ICONS.shadowing, color: 'violet', box: 'bg-violet-soft' };
   if (t.includes('quiz') || t.includes('trắc nghiệm') || t.includes('test'))
-    return { icon: 'help-circle', color: 'warning', box: 'bg-warning-soft' };
+    return { icon: 'help-circle', icon3d: ASSIGNMENT_3D_ICONS.quiz, color: 'warning', box: 'bg-warning-soft' };
   if (t.includes('ảnh') || t.includes('image') || t.includes('viết') || t.includes('writing'))
-    return { icon: 'image', color: 'success', box: 'bg-success-soft' };
-  if (t.includes('video') || t.includes('speaking') || t.includes('nói')) return { icon: 'videocam', color: 'brand', box: 'bg-brand-soft' };
-  return { icon: 'document-text', color: 'info', box: 'bg-info-soft' };
+    return { icon: 'image', icon3d: ASSIGNMENT_3D_ICONS.imageUpload, color: 'success', box: 'bg-success-soft' };
+  if (t.includes('video') || t.includes('speaking') || t.includes('nói'))
+    return { icon: 'videocam', icon3d: ASSIGNMENT_3D_ICONS.videoSpeaking, color: 'brand', box: 'bg-brand-soft' };
+  return { icon: 'document-text', icon3d: ASSIGNMENT_3D_ICONS.generic, color: 'info', box: 'bg-info-soft' };
 }
 
 /** "Hết hạn hôm nay 23:00" / "Còn 3 ngày" / "Quá hạn 2 ngày" — hạn nộp theo kiểu đọc nhanh trên điện thoại. */
@@ -102,8 +107,12 @@ export const AssignmentCard = memo(function AssignmentCard({
       onPress={locked ? undefined : onPress}
       accessibilityRole="button"
       className={`flex-row gap-3 rounded-3xl bg-surface p-3.5 ${locked ? 'opacity-50' : 'active:opacity-80'}`}>
-      <View className={`h-11 w-11 items-center justify-center rounded-2xl ${kind.box}`}>
-        <Ionicons name={kind.icon} size={20} color={tint} />
+      <View className={`h-11 w-11 items-center justify-center overflow-hidden rounded-2xl ${kind.icon3d ? '' : kind.box}`}>
+        {kind.icon3d ? (
+          <Image source={kind.icon3d} style={{ width: 42, height: 42 }} contentFit="contain" />
+        ) : (
+          <Ionicons name={kind.icon} size={20} color={tint} />
+        )}
       </View>
       <View className="flex-1 gap-1">
         <Text className="text-[15px] font-semibold leading-5 text-foreground" numberOfLines={2}>

@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
-import { mediaCacheKey, useMediaUrl } from '@/lib/media';
+import { HOME_SHORTCUT_3D_ICONS, STAFF_DASHBOARD_3D_ICONS } from '@/constants/three-d-icons';
 import { Screen } from '@/components/ui/screen';
+import { useGradingSummary } from '@/features/assignments/grading-api';
 import { useMyPermissionCodes } from '@/features/chat/api';
+import { DashboardHeader } from '@/features/dashboard/dashboard-header';
 import { StaffDashboard, type DashboardPeriod } from '@/features/dashboard/staff-dashboard';
 import { StudentDashboard, useStudentDashboardData } from '@/features/dashboard/student-dashboard';
 import { featuresForUser, isStaffRole, type AppFeature } from '@/navigation/features';
@@ -18,18 +20,6 @@ import { useThemeColor } from '@/theme/use-theme-color';
 
 /** Vai trò thấy dashboard thống kê hệ thống — khớp menuConfig web ('/dashboard' + quyền DASHBOARD_VIEW). */
 const DASHBOARD_ROLES = ['AD', 'TE', 'TA'];
-
-/** Ảnh 3D chỉ dùng cho các lối tắt học viên trên trang chủ; mục khác vẫn dùng Ionicons. */
-const SHORTCUT_3D_ICONS: Record<string, number> = {
-  'my-classes': require('../../../assets/images/shortcut-icons/my-classes.png'),
-  schedule: require('../../../assets/images/shortcut-icons/schedule.png'),
-  'my-assignments': require('../../../assets/images/shortcut-icons/my-assignments.png'),
-  'class-surveys': require('../../../assets/images/shortcut-icons/class-surveys.png'),
-  'my-certificates': require('../../../assets/images/shortcut-icons/my-certificates.png'),
-  'open-courses': require('../../../assets/images/shortcut-icons/open-courses.png'),
-  'course-privileges': require('../../../assets/images/shortcut-icons/course-privileges.png'),
-  shadowing: require('../../../assets/images/shortcut-icons/shadowing.png'),
-};
 
 /**
  * Trang chủ = Dashboard như bên web class:
@@ -75,24 +65,67 @@ function StaffHome() {
   );
 }
 
+/**
+ * Trang chủ của người nhận xét (TG): trước đây chỉ có lời chào + lối tắt, không nói gì về việc
+ * cần làm — trong khi hàng chờ nhận xét mới là việc chính của họ.
+ */
+function GraderToday() {
+  const summary = useGradingSummary(true);
+  const s = summary.data;
+  const go = () => router.push('/assignments');
+  return (
+    <Pressable onPress={go} className="gap-3 rounded-2xl border border-border bg-surface p-4 active:opacity-80">
+      <View className="flex-row items-center gap-2">
+        <Image source={STAFF_DASHBOARD_3D_ICONS.pendingGrading} style={{ width: 28, height: 28 }} contentFit="contain" accessible={false} />
+        <Text className="flex-1 text-[15px] font-bold text-foreground">Việc nhận xét hôm nay</Text>
+        <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+      </View>
+      <View className="flex-row gap-2">
+        <GraderStat icon3d={STAFF_DASHBOARD_3D_ICONS.pendingGrading} value={s?.total} label="Trong hàng chờ" tone="text-foreground" />
+        <GraderStat icon3d={STAFF_DASHBOARD_3D_ICONS.urgent} value={s?.urgent} label="Gấp (< 12 giờ)" tone="text-danger" />
+        <GraderStat icon3d={STAFF_DASHBOARD_3D_ICONS.activeGrading} value={s?.claimed} label="Bạn đang giữ" tone="text-info" />
+      </View>
+      {s && s.urgent > 0 ? (
+        <Text className="text-[12.5px] font-medium text-danger">Nhận các bài gấp trước khi nhận bài thường.</Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function GraderStat({ icon3d, value, label, tone }: { icon3d: number; value?: number; label: string; tone: string }) {
+  return (
+    <View className="flex-1 items-center gap-0.5 rounded-xl bg-surface-muted py-2.5">
+      <Image source={icon3d} style={{ width: 30, height: 30 }} contentFit="contain" accessible={false} />
+      <Text className={`text-[20px] font-extrabold ${tone}`}>{value ?? '–'}</Text>
+      <Text className="text-center text-[11.5px] text-muted">{label}</Text>
+    </View>
+  );
+}
+
 function BasicHome() {
   const user = useAuthStore((s) => s.user);
-  // Ảnh đại diện lưu ở class-be dạng `/uploads/file?key=…` → phải nối media token mới tải được
-  const avatarUri = useMediaUrl(user?.avatar);
   const [hour] = useState(() => new Date().getHours());
   const greeting = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+  const role = user?.role_code;
+  const eyebrow =
+    role === 'AD'
+      ? 'Không gian quản trị'
+      : role === 'TE'
+        ? 'Không gian giảng dạy'
+        : role === 'TA'
+          ? 'Không gian trợ giảng'
+          : role === 'TG'
+            ? 'Không gian nhận xét'
+            : 'Không gian làm việc';
+  const description =
+    role === 'TG' ? 'Theo dõi hàng chờ và tiến độ nhận xét bài' : 'Theo dõi công việc và truy cập nhanh các tính năng';
   return (
     <Screen>
-      <View className="flex-row items-center gap-3 pb-5">
-        <Avatar name={user?.name} uri={avatarUri} cacheKey={mediaCacheKey(user?.avatar)} size={48} />
-        <View className="flex-1">
-          <Text className="text-sm text-muted">{greeting} 👋</Text>
-          <Text className="text-xl font-bold text-foreground" numberOfLines={1}>
-            {user?.name}
-          </Text>
-        </View>
+      <View className="gap-4">
+        <DashboardHeader user={user} greeting={greeting} eyebrow={eyebrow} description={description} icon="briefcase" />
+        <GraderToday />
+        <Shortcuts />
       </View>
-      <Shortcuts />
     </Screen>
   );
 }
@@ -119,7 +152,7 @@ function Shortcuts() {
 
 function Shortcut({ feature }: { feature: AppFeature }) {
   const brand = useThemeColor('brand');
-  const shortcutIcon = SHORTCUT_3D_ICONS[feature.key];
+  const shortcutIcon = HOME_SHORTCUT_3D_ICONS[feature.key];
   return (
     <Pressable
       accessibilityRole="button"
@@ -128,7 +161,7 @@ function Shortcut({ feature }: { feature: AppFeature }) {
       className="w-1/4 items-center gap-1.5 px-1 active:opacity-70">
       {/* Icon 3D tự có khối + bóng → để trần; chỉ icon nét dự phòng mới cần ô nền */}
       {shortcutIcon ? (
-        <Image source={shortcutIcon} style={{ width: 52, height: 52 }} contentFit="contain" />
+        <Image source={shortcutIcon} style={{ width: 52, height: 52 }} contentFit="contain" accessible={false} />
       ) : (
         <View className="h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft">
           <Ionicons name={feature.icon} size={22} color={brand} />

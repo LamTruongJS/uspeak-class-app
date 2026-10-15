@@ -3,13 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { router, Stack, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Alert, AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { RichText } from '@/components/ui/rich-text';
 import { LoadingView, StateView } from '@/components/ui/state-view';
+import { showToast } from '@/components/ui/toast';
 import { YoutubePlayer, type YoutubePlayerHandle } from '@/components/ui/youtube-player';
 import {
   gradingActions,
@@ -22,6 +24,7 @@ import {
 } from './grading-api';
 import { mmss, rangeLabel, useSegmentPlayback } from './segment-loop';
 import { ScoreSlider } from './score-slider';
+import { SubmissionHistoryTimeline } from './submission-history';
 import { useMyPermissionCodes } from '@/features/chat/api';
 import { ImageViewer } from '@/features/chat/message-content';
 import { getErrorMessage } from '@/lib/api/client';
@@ -77,7 +80,7 @@ type Media =
   | { kind: 'video'; key: string; label: string; youtubeId: string; itemKey?: string }
   | { kind: 'image'; key: string; label: string; url: string; itemKey?: string };
 
-type Tab = 'grade' | 'brief' | 'notes';
+type Tab = 'playlist' | 'grading' | 'review_requirements' | 'requirements' | 'notes' | 'history';
 
 const isImageComment = (c: GradingComment) => c.kind === 'image' || (!!c.itemKey && !c.videoId);
 const draftKey = (id: string) => `uspeak.gradingDraft.${id}`;
@@ -201,7 +204,7 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
   const current = media[active];
   const imageOnly = media.length > 0 && media.every((m) => m.kind === 'image');
 
-  const [tab, setTab] = useState<Tab>('grade');
+  const [tab, setTab] = useState<Tab>('grading');
   // Nhận xét lại / Review: nạp sẵn nhận xét hiện hành (điểm khớp theo TÊN tiêu chí như web)
   const prior = isGrade ? null : s.feedback;
   const [criteria, setCriteria] = useState<GradingCriterion[]>(() =>
@@ -258,31 +261,30 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
   }, [id, isGrade]);
 
   // ── Rời màn: hỏi rồi trả bài về hàng chờ (trừ khi vừa nộp xong / hết giờ) ──
+  const confirmSheet = useActionSheet();
   const leaving = useRef(false);
   useEffect(() => {
     const unsub = navigation.addListener('beforeRemove', (e) => {
       if (leaving.current) return;
       e.preventDefault();
-      Alert.alert(
-        'Rời khỏi bài này?',
-        isGrade ? 'Bài sẽ được trả về hàng chờ. Phần bạn đã chấm vẫn được lưu nháp trên máy.' : 'Những gì bạn vừa sửa sẽ không được lưu.',
-        [
-          { text: 'Ở lại', style: 'cancel' },
-          {
-            text: 'Rời khỏi',
-            style: 'destructive',
-            onPress: async () => {
-              leaving.current = true;
-              if (isGrade) await gradingActions.release(id).catch(() => undefined);
-              void queryClient.invalidateQueries({ queryKey: ['grading'] });
-              navigation.dispatch(e.data.action);
-            },
-          },
-        ],
-      );
+      confirmSheet.confirm({
+        title: 'Rời khỏi bài này?',
+        message: isGrade
+          ? 'Bài sẽ được trả về hàng chờ. Phần bạn đã chấm vẫn được lưu nháp trên máy.'
+          : 'Những gì bạn vừa sửa sẽ không được lưu.',
+        label: 'Rời khỏi',
+        icon: 'exit-outline',
+        cancelLabel: 'Ở lại',
+        onConfirm: async () => {
+          leaving.current = true;
+          if (isGrade) await gradingActions.release(id).catch(() => undefined);
+          void queryClient.invalidateQueries({ queryKey: ['grading'] });
+          navigation.dispatch(e.data.action);
+        },
+      });
     });
     return unsub;
-  }, [navigation, id, isGrade]);
+  }, [navigation, id, isGrade, confirmSheet]);
 
   // ── Đồng hồ giữ bài ──
   const deadline = isGrade && s.claimed_at ? new Date(s.claimed_at).getTime() + (s.grading_duration_minutes || 30) * 60_000 : null;
@@ -298,9 +300,9 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
     leaving.current = true;
     void gradingActions.release(id).catch(() => undefined);
     void queryClient.invalidateQueries({ queryKey: ['grading'] });
-    Alert.alert('Hết thời gian nhận xét', 'Bài đã được trả về hàng chờ. Phần bạn đã chấm vẫn lưu nháp trên máy.', [
-      { text: 'Về hàng chờ', onPress: () => router.back() },
-    ]);
+    // Về hàng chờ ngay; lý do hiện thành toast trên màn đó — hết giờ rồi thì ở lại cũng không chấm được
+    router.back();
+    showToast('warning', 'Hết thời gian nhận xét', 'Bài đã được trả về hàng chờ. Phần bạn đã chấm vẫn lưu nháp trên máy.', 5000);
   }, [expired, id]);
 
   // ── Điểm ──
@@ -328,7 +330,9 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
     await AsyncStorage.removeItem(draftKey(id)).catch(() => undefined);
     void queryClient.invalidateQueries({ queryKey: ['grading'] });
     void queryClient.invalidateQueries({ queryKey: ['assignments'] });
-    Alert.alert(title, body, [{ text: 'Quay lại', onPress: () => router.back() }]);
+    // Xong việc thì quay lại luôn, toast báo kết quả nổi trên màn trước — không bắt bấm "OK" nữa.
+    showToast('success', title, body, 4000);
+    router.back();
   };
 
   async function submit() {
@@ -342,26 +346,26 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
         await finish(mode === 'regrade' ? 'Đã nhận xét lại' : 'Đã nộp nhận xét', `Điểm ${total}/10 · ${s.student_name}`);
       }
     } catch (err) {
-      Alert.alert(mode === 'review' ? 'Chưa phê duyệt được' : 'Nộp nhận xét chưa được', getErrorMessage(err));
+      showToast('error', mode === 'review' ? 'Chưa phê duyệt được' : 'Nộp nhận xét chưa được', getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   }
 
   const confirmSubmit = () =>
-    Alert.alert(
-      mode === 'review' ? 'Phê duyệt kết quả?' : mode === 'regrade' ? 'Nộp nhận xét lại?' : 'Nộp nhận xét?',
-      `Điểm tổng ${total}/10 cho ${s.student_name}. ${mode === 'review' ? 'Học viên sẽ thấy kết quả ngay sau khi duyệt.' : 'Sau khi nộp học viên sẽ thấy ngay.'}`,
-      [
-        { text: 'Xem lại', style: 'cancel' },
-        { text: mode === 'review' ? 'Phê duyệt' : 'Nộp', onPress: () => void submit() },
-      ],
-    );
-
-  const notesCount = [s.status_before_claim === 'reassigned' && s.reassign_reason, s.redo_reason, s.regrade_reason].filter(Boolean).length;
+    confirmSheet.confirm({
+      title: mode === 'review' ? 'Phê duyệt kết quả?' : mode === 'regrade' ? 'Nộp nhận xét lại?' : 'Nộp nhận xét?',
+      message: `Điểm tổng ${total}/10 cho ${s.student_name}. ${mode === 'review' ? 'Học viên sẽ thấy kết quả ngay sau khi duyệt.' : 'Sau khi nộp học viên sẽ thấy ngay.'}`,
+      label: mode === 'review' ? 'Phê duyệt' : 'Nộp',
+      icon: 'paper-plane-outline',
+      danger: false,
+      cancelLabel: 'Xem lại',
+      onConfirm: () => void submit(),
+    });
 
   return (
     <View className="flex-1 bg-background">
+      {confirmSheet.sheet}
       <Stack.Screen
         options={{
           title: MODE[mode].title,
@@ -397,33 +401,6 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
           </Pressable>
         ) : null}
 
-        {media.length > 1 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="max-h-14 grow-0 border-b border-border bg-surface"
-            contentContainerClassName="items-center gap-2 px-3 py-2">
-            {media.map((m, i) => {
-              const done =
-                m.kind === 'image'
-                  ? !m.itemKey || imageComments.some((c) => c.itemKey === m.itemKey)
-                  : comments.some((c) => c.videoId === m.youtubeId);
-              return (
-                <Pressable
-                  key={m.key}
-                  onPress={() => setActive(i)}
-                  className={`h-9 flex-row items-center gap-1.5 rounded-full px-3 ${i === active ? 'bg-foreground' : 'bg-surface-muted'}`}>
-                  <Ionicons name={m.kind === 'video' ? 'videocam' : 'image'} size={13} color={i === active ? '#fff' : muted} />
-                  <Text className={`text-[13px] font-semibold ${i === active ? 'text-background' : 'text-muted'}`} numberOfLines={1}>
-                    {m.label}
-                  </Text>
-                  {done ? <Ionicons name="checkmark-circle" size={13} color="#059669" /> : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-
         <ScrollView
           className="flex-1"
           contentContainerClassName="gap-4 p-4"
@@ -446,42 +423,51 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
 
           {prior ? <PriorGraderCard prior={prior} mode={mode} /> : null}
 
-          <View className="flex-row rounded-full bg-surface-muted p-1">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="-mx-4 max-h-12 grow-0 border-y border-border bg-surface"
+            contentContainerClassName="px-3">
             {(
               [
-                ['grade', mode === 'review' ? 'Duyệt' : 'Chấm điểm'],
-                ['brief', 'Đề bài'],
-                ['notes', notesCount ? `Ghi chú (${notesCount})` : 'Ghi chú'],
+                ...(media.length > 1 ? ([['playlist', `Danh sách bài nộp (${media.length})`]] as [Tab, string][]) : []),
+                ['grading', mode === 'review' ? 'Review bài' : mode === 'regrade' ? 'Nhận xét lại' : 'Nhận xét bài'],
+                ['review_requirements', 'Yêu cầu nhận xét'],
+                ['requirements', 'Yêu cầu bài tập'],
+                ['notes', 'Ghi chú'],
+                ['history', 'Lịch sử'],
               ] as [Tab, string][]
-            ).map(([k, label]) => (
-              <Pressable
-                key={k}
-                onPress={() => setTab(k)}
-                className={`h-9 flex-1 items-center justify-center rounded-full ${tab === k ? 'bg-surface' : ''}`}>
-                <Text className={`text-[13.5px] font-semibold ${tab === k ? 'text-foreground' : 'text-muted'}`}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
+            ).map(([k, label]) => {
+              const selected = tab === k;
+              return (
+                <Pressable key={k} onPress={() => setTab(k)} className="relative h-11 justify-center px-3.5 active:opacity-70">
+                  <Text className={`text-[13px] font-semibold ${selected ? 'text-brand' : 'text-muted'}`}>{label}</Text>
+                  {selected ? <View className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t-full bg-brand" /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
-          {tab === 'brief' ? (
-            <View className="gap-4">
-              <Section title="Yêu cầu nhận xét" icon="clipboard-outline">
-                {s.assignment_review_requirement ? (
-                  <RichText html={s.assignment_review_requirement} />
-                ) : (
-                  <Text className="text-[13.5px] text-muted">Không có yêu cầu nhận xét.</Text>
-                )}
-              </Section>
-              <Section title="Đề bài" icon="document-text-outline">
-                {s.assignment_description ? (
-                  <RichText html={s.assignment_description} />
-                ) : (
-                  <Text className="text-[13.5px] text-muted">Không có mô tả cho bài tập này.</Text>
-                )}
-              </Section>
-            </View>
+          {tab === 'playlist' ? (
+            <MediaPlaylist
+              media={media}
+              active={active}
+              imageComments={imageComments}
+              comments={comments}
+              onSelect={setActive}
+            />
+          ) : tab === 'review_requirements' ? (
+            <TabContent icon="clipboard-outline" empty="Không có yêu cầu nhận xét">
+              {s.assignment_review_requirement ? <RichText html={s.assignment_review_requirement} /> : null}
+            </TabContent>
+          ) : tab === 'requirements' ? (
+            <TabContent icon="document-text-outline" empty="Không có mô tả cho bài tập này">
+              {s.assignment_description ? <RichText html={s.assignment_description} /> : null}
+            </TabContent>
           ) : tab === 'notes' ? (
             <NotesTab s={s} />
+          ) : tab === 'history' ? (
+            <SubmissionHistoryTimeline submissionId={id} />
           ) : (
             <View className="gap-4">
               {current?.kind === 'image' ? (
@@ -712,10 +698,7 @@ function ReviewSheets({
                   onPress={() => {
                     if (i.key === 'takeover' && !gradeReady) {
                       setSheet(null);
-                      Alert.alert(
-                        'Chưa đủ để tự nhận xét',
-                        'Hoàn tất nhận xét (đủ điểm, nhận xét chung, mốc video…) rồi mới ghi nhận bài về mình.',
-                      );
+                      showToast('warning', 'Chưa đủ để tự nhận xét', 'Hoàn tất nhận xét (đủ điểm, nhận xét chung, mốc video…) rồi mới ghi nhận bài về mình.');
                       return;
                     }
                     setSheet(i.key);
@@ -810,7 +793,7 @@ function ReasonSheet({
       setChecked(false);
       onClose();
     } catch (err) {
-      Alert.alert('Chưa gửi được', getErrorMessage(err));
+      showToast('error', 'Chưa gửi được', getErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -1203,6 +1186,77 @@ function ImageComments({
   );
 }
 
+function MediaPlaylist({
+  media,
+  active,
+  imageComments,
+  comments,
+  onSelect,
+}: {
+  media: Media[];
+  active: number;
+  imageComments: GradingComment[];
+  comments: GradingComment[];
+  onSelect: (index: number) => void;
+}) {
+  const muted = useThemeColor('muted');
+  return (
+    <View className="gap-2.5">
+      {media.map((item, index) => {
+        const selected = active === index;
+        const done =
+          item.kind === 'image'
+            ? !item.itemKey || imageComments.some((comment) => comment.itemKey === item.itemKey)
+            : comments.some((comment) => comment.videoId === item.youtubeId);
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => onSelect(index)}
+            className={`flex-row items-center gap-3 rounded-2xl border bg-surface p-3 active:opacity-80 ${
+              selected ? 'border-brand' : 'border-border'
+            }`}>
+            <View className={`h-12 w-16 items-center justify-center rounded-xl ${selected ? 'bg-brand-soft' : 'bg-surface-muted'}`}>
+              <Ionicons name={item.kind === 'image' ? 'image' : 'videocam'} size={24} color={selected ? '#b62025' : muted} />
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text className={`text-[14.5px] font-bold ${selected ? 'text-brand' : 'text-foreground'}`} numberOfLines={1}>
+                {item.label || `Phần ${index + 1}`}
+              </Text>
+              <Text className="mt-0.5 text-[12px] text-muted">
+                {item.kind === 'image' ? 'Ảnh cần nhận xét' : 'Video cần nhận xét'} · Phần {index + 1}
+              </Text>
+              {selected ? <Text className="mt-1 text-[11px] font-bold uppercase text-brand">Đang xem</Text> : null}
+            </View>
+            {done ? <Ionicons name="checkmark-circle" size={20} color="#059669" /> : <Ionicons name="chevron-forward" size={17} color={muted} />}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function TabContent({
+  icon,
+  empty,
+  children,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  empty: string;
+  children: React.ReactNode;
+}) {
+  const muted = useThemeColor('muted');
+  return (
+    <View className="min-h-36 rounded-3xl bg-surface p-4">
+      {children || (
+        <View className="flex-1 items-center justify-center gap-2 py-8">
+          <Ionicons name={icon} size={30} color={muted} />
+          <Text className="text-center text-[13.5px] text-muted">{empty}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function NotesTab({ s }: { s: SubmissionForGrading }) {
   const notes = [
     s.status_before_claim === 'reassigned' && s.reassign_reason
@@ -1265,9 +1319,10 @@ function RedoSheet({
       deadline?.setHours(23, 0, 0, 0);
       await gradingActions.requestRedo(submissionId, { reason: reason.trim(), redo_deadline: deadline?.toISOString() });
       onClose();
-      Alert.alert('Đã gửi yêu cầu làm lại', `${studentName} sẽ nhận được thông báo.`, [{ text: 'OK', onPress: onDone }]);
+      showToast('success', 'Đã gửi yêu cầu làm lại', `${studentName} sẽ nhận được thông báo.`);
+      onDone();
     } catch (err) {
-      Alert.alert('Chưa gửi được', getErrorMessage(err));
+      showToast('error', 'Chưa gửi được', getErrorMessage(err));
     } finally {
       setBusy(false);
     }

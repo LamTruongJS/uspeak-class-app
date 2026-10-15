@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { StateView } from '@/components/ui/state-view';
+import { CLASS_CONTENT_3D_ICONS, ELEARNING_NODE_3D_ICONS } from '@/constants/three-d-icons';
 import { getErrorMessage } from '@/lib/api/client';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -91,7 +93,6 @@ function ContinueCard({
   total: number;
   percent: number;
 }) {
-  const onBrand = useThemeColor('on-brand');
   const success = useThemeColor('success');
 
   return (
@@ -108,9 +109,7 @@ function ContinueCard({
             </Text>
             <Text className="text-[12px] text-muted">{NODE_LABEL[next.type] ?? 'Nội dung'}</Text>
           </View>
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-brand">
-            <Ionicons name="play" size={22} color={onBrand} style={{ marginLeft: 3 }} />
-          </View>
+          <Image source={CLASS_CONTENT_3D_ICONS.elearning} style={{ width: 52, height: 52 }} contentFit="contain" accessible={false} />
         </View>
       ) : (
         <View className="flex-row items-center gap-3">
@@ -215,6 +214,7 @@ function LeafRow({ node, classId, last, indent = 0 }: { node: ElearningNode; cla
   const tone = TYPE_TONE[node.type] ?? TYPE_TONE.lesson_content;
   const tint = useThemeColor(tone.color);
   const icon = NODE_ICON[node.type] ?? 'document-text';
+  const icon3d = ELEARNING_NODE_3D_ICONS[node.type];
   const left = 16 + indent * 14;
 
   return (
@@ -222,12 +222,17 @@ function LeafRow({ node, classId, last, indent = 0 }: { node: ElearningNode; cla
       onPress={() => openNode(node, classId)}
       className="flex-row items-center gap-3 py-3 pr-4 active:bg-surface-muted"
       style={{ paddingLeft: left }}>
-      <View className={`h-10 w-10 items-center justify-center rounded-xl ${node.is_completed ? 'bg-success-soft' : tone.box}`}>
-        <Ionicons
-          name={node.is_completed ? 'checkmark' : icon}
-          size={node.is_completed ? 20 : 18}
-          color={node.is_completed ? success : tint}
-        />
+      <View
+        className={`h-10 w-10 items-center justify-center rounded-xl ${
+          node.is_completed ? 'bg-success-soft' : icon3d ? '' : tone.box
+        }`}>
+        {node.is_completed ? (
+          <Ionicons name="checkmark" size={20} color={success} />
+        ) : icon3d ? (
+          <Image source={icon3d} style={{ width: 40, height: 40 }} contentFit="contain" accessible={false} />
+        ) : (
+          <Ionicons name={icon} size={18} color={tint} />
+        )}
       </View>
       <View className="flex-1 gap-0.5">
         <Text

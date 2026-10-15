@@ -71,6 +71,29 @@ export function useGradingQueue(params: { status: GradingStatusFilter; search: s
   });
 }
 
+/**
+ * Đếm nhanh việc chấm bài cho trang chủ của người nhận xét: hàng chờ, bài gấp, bài mình đang giữ.
+ * Xin `limit=1` vì chỉ cần mấy con số tổng — không kéo cả trang dữ liệu về để đếm.
+ */
+export function useGradingSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: ['grading', 'summary'],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const [queue, mine] = await Promise.all([
+        api.get<GradingQueuePage>('/assignments/grading-queue', { params: { page: 1, limit: 1 } }),
+        api.get<GradingQueuePage>('/assignments/grading-queue', { params: { page: 1, limit: 1, status: 'claimed' } }),
+      ]);
+      return {
+        total: queue.data?.total ?? 0,
+        urgent: queue.data?.urgentTotal ?? 0,
+        claimed: mine.data?.total ?? 0,
+      };
+    },
+  });
+}
+
 /** Nhận bài để nhận xét — 409 / ALREADY_CLAIMED: người khác vừa nhận trước. */
 export const gradingApi = {
   claim: (submissionId: string) => api.patch(`/assignments/submissions/${submissionId}/claim`),
@@ -151,6 +174,34 @@ export interface SubmissionForGrading {
   grader_feedback?: { content?: string } | null;
 }
 
+/** Một mốc trong tab Lịch sử — cùng shape với GradingHistory của class-fe. */
+export interface SubmissionHistoryEvent {
+  type: 'submitted' | 'claimed' | 'graded' | 'redo_requested' | 'regrade_requested' | 'reassigned' | string;
+  timestamp: string;
+  label: string;
+  details?: string | null;
+  user_name?: string;
+  user_avatar?: string;
+  score?: number;
+  max_score?: number;
+  grading_round?: number;
+  is_current?: boolean;
+  text_feedback?: string;
+  assigned_to?: string;
+  status?: string;
+  previous_grader_name?: string;
+  assigned_grader_name?: string;
+  assigned_reason?: string;
+  previous_grader_reason?: string;
+}
+
+export interface SubmissionHistoryData {
+  submission_id: string;
+  attempt_number: number;
+  current_status: string;
+  events: SubmissionHistoryEvent[];
+}
+
 export interface GraderOption {
   _id: string;
   name?: string;
@@ -193,6 +244,23 @@ export function useSubmissionForGrading(submissionId: string) {
     queryFn: async () => {
       const res = (await api.get<{ data?: SubmissionForGrading } & SubmissionForGrading>(`/assignments/submissions/${submissionId}`)).data;
       return (res.data ?? res) as SubmissionForGrading;
+    },
+  });
+}
+
+/** Timeline lịch sử của đúng bài nộp, dùng cho tab Lịch sử giống class-fe. */
+export function useSubmissionHistory(submissionId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['grading', 'submission-history', submissionId],
+    enabled: enabled && !!submissionId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const body = (
+        await api.get<{ data?: SubmissionHistoryData } & SubmissionHistoryData>(
+          `/assignments/submissions/${submissionId}/history`,
+        )
+      ).data;
+      return (body.data ?? body) as SubmissionHistoryData;
     },
   });
 }

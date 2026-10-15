@@ -56,12 +56,17 @@ export const NotificationCard = memo(function NotificationCard({
   expanded,
   canManage,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   item: ClassNotification;
   now: number;
   expanded: boolean;
   canManage?: boolean;
   onToggle: () => void;
+  /** Nhân sự: nút Sửa / Xoá hiện khi mở thông báo */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const muted = useThemeColor('muted');
   const brand = useThemeColor('brand');
@@ -72,7 +77,7 @@ export const NotificationCard = memo(function NotificationCard({
   const files = (item.attachments ?? []).filter((a) => !isImage(a));
 
   return (
-    <View className={`overflow-hidden rounded-2xl border bg-surface ${unread ? 'border-info' : 'border-border'}`}>
+    <View className={`overflow-hidden rounded-3xl border bg-surface ${unread ? 'border-info' : 'border-transparent'}`}>
       <Pressable onPress={onToggle} className="gap-2 p-3.5 active:bg-surface-muted">
         <View className="flex-row items-center gap-2">
           <Badge label={status.label} tone={status.tone} />
@@ -119,6 +124,23 @@ export const NotificationCard = memo(function NotificationCard({
                 <Ionicons name="download-outline" size={16} color={muted} />
               </Pressable>
             ))}
+
+            {onEdit || onDelete ? (
+              <View className="flex-row gap-2 pt-0.5">
+                {onEdit ? (
+                  <Pressable onPress={onEdit} className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-surface-muted active:opacity-70">
+                    <Ionicons name="create-outline" size={16} color={brand} />
+                    <Text className="text-[13.5px] font-bold text-brand">Sửa</Text>
+                  </Pressable>
+                ) : null}
+                {onDelete ? (
+                  <Pressable onPress={onDelete} className="h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-danger-soft active:opacity-70">
+                    <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                    <Text className="text-[13.5px] font-bold text-danger">Xoá</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
 
             {item.video_url ? (
               <Pressable

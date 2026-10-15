@@ -13,10 +13,17 @@ import { useThemeColor } from '@/theme/use-theme-color';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 /** Chiều cao thanh + khoảng hở hai bên — dùng cho `useTabBarSpace` để nội dung không bị che. */
-const BAR_HEIGHT = 52;
+const BAR_HEIGHT = 58;
 const BAR_GAP = 8;
-/** Ô tròn tô nền khi tab đang chọn — đặt bo tròn bằng style để chắc chắn ra hình TRÒN. */
-const PILL_SIZE = 38;
+/**
+ * Nền tab đang chọn: viên thuốc NẰM NGANG (dài hơn cao) kiểu Material 3, không phải hình tròn.
+ * `PILL_MAX_W` chỉ là trần: viên thuốc rộng bằng ô tab (`width: '100%'`) nên máy màn hình nhỏ
+ * (5 tab × ~57dp) vẫn còn khe hở giữa các tab, không dính vào nhau.
+ */
+const PILL_H = 38;
+const PILL_MAX_W = 62;
+/** Ô vuông bọc icon — mốc neo cho huy hiệu số chưa đọc, giữ nguyên dù viên thuốc rộng ra. */
+const ICON_BOX = 30;
 
 /** Icon theo tên route của thư mục (tabs). Tab "account" vẽ ảnh đại diện thay cho icon. */
 const ICONS: Record<string, { on: IconName; off: IconName; label: string }> = {
@@ -40,7 +47,7 @@ export function useTabBarSpace() {
  * Thanh menu dưới kiểu "nổi": một viên thuốc bo tròn, có bóng, nằm đè lên nội dung và đứng yên
  * khi cuộn (thay cho thanh tab native đặc kín mép dưới).
  *
- * - Chỉ icon, bỏ chữ — tab đang chọn tô nền `brand-soft` + icon màu thương hiệu.
+ * - Chỉ icon, bỏ chữ — tab đang chọn tô nền `brand-soft` hình viên thuốc nằm ngang + icon màu thương hiệu.
  * - Tab Tài khoản hiện ảnh đại diện thật của người dùng, đang chọn thì có viền thương hiệu.
  */
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -89,62 +96,70 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
               className="flex-1 items-center justify-center active:opacity-60">
-              {/* Ô nền khi chọn: viết hết bằng style (kể cả màu nền) để chắc chắn ra hình TRÒN —
-                  trộn nền của className với bo tròn bằng style thì trên máy thật ra hình vuông. */}
+              {/* Khung của 1 tab: rộng bằng ô tab (có trần) để viên thuốc nền kéo dài theo. */}
               <View
                 style={{
-                  width: PILL_SIZE,
-                  height: PILL_SIZE,
+                  // 92% chứ không 100%: máy màn hình nhỏ thì viên thuốc vẫn còn khe hở hai bên,
+                  // không chạm sát mép ô tab bên cạnh.
+                  width: '92%',
+                  maxWidth: PILL_MAX_W,
+                  height: PILL_H,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'visible',
                 }}>
-                {/* Nền tròn là LỚP RIÊNG không chứa gì: để chung 1 view với huy hiệu số tràn ra ngoài
-                    (tab Chat) thì Android vẽ bo góc sai thành hình vuông. */}
+                {/* Nền là LỚP RIÊNG KHÔNG CHỨA GÌ: để chung 1 view với huy hiệu số tràn ra ngoài
+                    (tab Chat) thì Android vẽ bo góc sai thành hình vuông. Viết hết bằng style (kể cả
+                    màu nền) — trộn nền của className với bo tròn bằng style cũng ra hình vuông. */}
                 {focused ? (
                   <View
                     style={{
                       position: 'absolute',
-                      width: PILL_SIZE,
-                      height: PILL_SIZE,
-                      borderRadius: PILL_SIZE / 2,
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      borderRadius: PILL_H / 2,
                       backgroundColor: brandSoft,
                     }}
                   />
                 ) : null}
-                {route.name === 'account' && avatarUri ? (
-                  // Chỉ vẽ ảnh khi ĐÃ có link đầy đủ (có media token); chưa có thì dùng icon người
-                  // như các tab khác, không để ô trống.
-                  <View
-                    style={{
-                      borderRadius: PILL_SIZE / 2,
-                      overflow: 'hidden',
-                      borderWidth: focused ? 2 : 0,
-                      borderColor: brand,
-                    }}>
-                    <Avatar name={user?.name} uri={avatarUri} cacheKey={mediaCacheKey(user?.avatar)} size={focused ? 24 : 26} />
-                  </View>
-                ) : (
-                  <Ionicons name={focused ? meta.on : meta.off} size={21} color={focused ? brand : muted} />
-                )}
 
-                {route.name === 'chat' && unread > 0 ? (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 0,
-                      minWidth: 16,
-                      height: 16,
-                      paddingHorizontal: 4,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: danger,
-                    }}>
-                    <Text className="text-[9px] font-bold text-white">{unread > 99 ? '99+' : unread}</Text>
-                  </View>
-                ) : null}
+                {/* Ô bọc icon giữ kích thước cố định → huy hiệu số vẫn nằm sát icon dù nền rộng ra */}
+                <View style={{ width: ICON_BOX, height: ICON_BOX, alignItems: 'center', justifyContent: 'center' }}>
+                  {route.name === 'account' && avatarUri ? (
+                    // Chỉ vẽ ảnh khi ĐÃ có link đầy đủ (có media token); chưa có thì dùng icon người
+                    // như các tab khác, không để ô trống.
+                    <View
+                      style={{
+                        borderRadius: ICON_BOX / 2,
+                        overflow: 'hidden',
+                        borderWidth: focused ? 2 : 0,
+                        borderColor: brand,
+                      }}>
+                      <Avatar name={user?.name} uri={avatarUri} cacheKey={mediaCacheKey(user?.avatar)} size={focused ? 26 : 28} />
+                    </View>
+                  ) : (
+                    <Ionicons name={focused ? meta.on : meta.off} size={22} color={focused ? brand : muted} />
+                  )}
+
+                  {route.name === 'chat' && unread > 0 ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        right: -2,
+                        top: -1,
+                        minWidth: 16,
+                        height: 16,
+                        paddingHorizontal: 4,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: danger,
+                      }}>
+                      <Text className="text-[9px] font-bold text-white">{unread > 99 ? '99+' : unread}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </Pressable>
           );

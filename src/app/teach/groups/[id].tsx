@@ -1,8 +1,9 @@
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { chatApi, useChatRooms } from '@/features/chat/api';
@@ -42,7 +43,7 @@ export default function TeachingGroupDetailScreen() {
       void rooms.refetch();
       router.push({ pathname: '/chat/[roomId]', params: { roomId: dm._id } });
     } catch (err) {
-      Alert.alert('Không nhắn riêng được', getErrorMessage(err));
+      showToast('error', 'Không nhắn riêng được', getErrorMessage(err));
     } finally {
       setOpening(null);
     }

@@ -1,10 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
+import { CLASS_REPORT_3D_ICONS } from '@/constants/three-d-icons';
 import { isNoGrading, type StudentAssignmentItem } from '@/features/assignments/api';
 import { assignmentScore10, formatScore } from '@/features/dashboard/student-metrics';
-import { useThemeColor } from '@/theme/use-theme-color';
 
 import { summarizeAttendance, type AttendanceSession } from './api';
 
@@ -79,13 +79,13 @@ export function ClassReportView({
   return (
     <View className="gap-3">
       <View className="flex-row flex-wrap justify-between gap-y-2.5">
-        <Kpi icon="book" color="#2563eb" label="Bài tập" value={String(report.total)} />
-        <Kpi icon="checkmark-done" color="#059669" label="Hoàn thành" value={`${report.completionRate}%`} />
-        <Kpi icon="calendar" color="#7c3aed" label="Đi học" value={`${Math.round(attRate)}%`} />
-        <Kpi icon="ribbon" color="#d97706" label="Điểm TB" value={formatScore(report.averageScore)} />
+        <Kpi icon3d={CLASS_REPORT_3D_ICONS.assignments} label="Bài tập" value={String(report.total)} />
+        <Kpi icon3d={CLASS_REPORT_3D_ICONS.completion} label="Hoàn thành" value={`${report.completionRate}%`} />
+        <Kpi icon3d={CLASS_REPORT_3D_ICONS.attendance} label="Đi học" value={`${Math.round(attRate)}%`} />
+        <Kpi icon3d={CLASS_REPORT_3D_ICONS.averageScore} label="Điểm TB" value={formatScore(report.averageScore)} />
       </View>
 
-      <Card title="Tình trạng bài nộp" icon="pie-chart-outline">
+      <Card title="Tình trạng bài nộp" icon3d={CLASS_REPORT_3D_ICONS.submissionStatus}>
         {breakdown.length ? (
           breakdown.map((row) => (
             <View key={row.label} className="gap-1">
@@ -106,7 +106,7 @@ export function ClassReportView({
         </Text>
       </Card>
 
-      <Card title="Điểm từng bài tập" icon="bar-chart-outline">
+      <Card title="Điểm từng bài tập" icon3d={CLASS_REPORT_3D_ICONS.assignmentScores}>
         {assignments.length ? (
           assignments.map((a, index) => {
             const score = assignmentScore10(a);
@@ -134,7 +134,7 @@ export function ClassReportView({
       </Card>
 
       {sessions.length ? (
-        <Card title="Điểm danh" icon="people-outline">
+        <Card title="Điểm danh" icon3d={CLASS_REPORT_3D_ICONS.attendanceDetails}>
           <View className="flex-row justify-between">
             <Text className="text-[13px] text-muted">Tỉ lệ tham gia</Text>
             <Text className="text-[13px] font-bold text-success">{attendance.rate}%</Text>
@@ -159,11 +159,11 @@ export function ClassReportView({
   );
 }
 
-function Kpi({ icon, color, label, value }: { icon: keyof typeof Ionicons.glyphMap; color: string; label: string; value: string }) {
+function Kpi({ icon3d, label, value }: { icon3d: number; label: string; value: string }) {
   return (
     <View className="w-[48.8%] flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-      <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}22` }}>
-        <Ionicons name={icon} size={18} color={color} />
+      <View className="h-10 w-10 items-center justify-center">
+        <Image source={icon3d} style={{ width: 40, height: 40 }} contentFit="contain" accessible={false} />
       </View>
       <View>
         <Text className="text-lg font-extrabold text-foreground">{value}</Text>
@@ -173,12 +173,11 @@ function Kpi({ icon, color, label, value }: { icon: keyof typeof Ionicons.glyphM
   );
 }
 
-function Card({ title, icon, children }: { title: string; icon: keyof typeof Ionicons.glyphMap; children: ReactNode }) {
-  const brand = useThemeColor('brand');
+function Card({ title, icon3d, children }: { title: string; icon3d: number; children: ReactNode }) {
   return (
     <View className="gap-2.5 rounded-2xl border border-border bg-surface p-3.5">
       <View className="flex-row items-center gap-2">
-        <Ionicons name={icon} size={16} color={brand} />
+        <Image source={icon3d} style={{ width: 24, height: 24 }} contentFit="contain" accessible={false} />
         <Text className="text-sm font-bold text-foreground">{title}</Text>
       </View>
       {children}

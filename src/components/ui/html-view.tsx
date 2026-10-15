@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
-import { memo, useMemo } from 'react';
-import { Linking, Text, View, useWindowDimensions } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
+import { createContext, memo, useContext, useMemo, useState } from 'react';
+import { Linking, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 
@@ -116,9 +118,9 @@ function parseHtml(html: string): HtmlNode[] {
 }
 
 const HEADING_CLASS: Record<string, string> = {
-  h1: 'text-[22px] font-extrabold leading-7',
-  h2: 'text-xl font-bold leading-7',
-  h3: 'text-[17px] font-bold leading-6',
+  h1: 'pt-2 text-[21px] font-extrabold leading-7',
+  h2: 'pt-2 text-[19px] font-extrabold leading-7',
+  h3: 'pt-1 text-[17px] font-bold leading-6',
   h4: 'text-base font-bold leading-6',
   h5: 'text-[15px] font-bold leading-6',
   h6: 'text-sm font-bold leading-5',
@@ -151,6 +153,64 @@ const BLOCK_TAGS = new Set([
   'h5',
   'h6',
 ]);
+
+/** Link web mở bằng trình duyệt TRONG app (không văng sang Chrome/Safari); tel:/mailto: giao cho hệ thống. */
+function openHref(href: string) {
+  if (/^https?:\/\//i.test(href)) void WebBrowser.openBrowserAsync(href);
+  else void Linking.openURL(href);
+}
+
+/** Bấm ảnh để xem to — màn cha truyền vào (HtmlView không tự kéo trình xem ảnh để khỏi phụ thuộc feature). */
+const ImagePressContext = createContext<((uri: string) => void) | undefined>(undefined);
+
+/** Ảnh trong bài: chưa biết kích thước thì đo khi tải xong (ảnh chụp màn hình dọc bị ép 16:9 sẽ bé xíu). */
+function HtmlImage({ uri, cacheKey, width, w, h }: { uri: string; cacheKey?: string; width: number; w: number; h: number }) {
+  const onPress = useContext(ImagePressContext);
+  const [measured, setMeasured] = useState<number | null>(null);
+  const ratio = w > 0 && h > 0 ? w / h : (measured ?? 16 / 9);
+  // Ảnh dọc (chụp màn hình điện thoại) không cho cao quá 1.4 lần bề ngang
+  const height = Math.min(width / ratio, width * 1.4);
+  return (
+    <Pressable onPress={onPress ? () => onPress(uri) : undefined} className="items-center overflow-hidden rounded-2xl bg-surface-muted">
+      <Image
+        source={{ uri, cacheKey }}
+        style={{ width, height }}
+        contentFit="contain"
+        transition={120}
+        onLoad={(e) => {
+          if (!(w > 0 && h > 0) && e.source.width && e.source.height) setMeasured(e.source.width / e.source.height);
+        }}
+      />
+    </Pressable>
+  );
+}
+
+/** Đoạn chỉ chứa đúng 1 liên kết (kiểu mục lục "HƯỚNG DẪN …") → hàng bấm được thay vì chữ xanh gạch chân. */
+function soleLink(nodes: HtmlNode[]): ElementNode | null {
+  const meaningful = nodes.filter((n) => n.type === 'el' || n.text.trim());
+  if (meaningful.length !== 1) return null;
+  let n = meaningful[0];
+  while (n.type === 'el' && n.tag !== 'a') {
+    const inner = n.children.filter((c) => c.type === 'el' || c.text.trim());
+    if (inner.length !== 1 || !['strong', 'b', 'em', 'i', 'u', 'span'].includes(n.tag)) return null;
+    n = inner[0];
+  }
+  return n.type === 'el' && n.tag === 'a' && n.attrs.href ? n : null;
+}
+
+function LinkRow({ node }: { node: ElementNode }) {
+  const href = node.attrs.href;
+  const internal = href.startsWith('#');
+  return (
+    <Pressable
+      onPress={internal ? undefined : () => openHref(href)}
+      className="flex-row items-center gap-3 rounded-2xl bg-info-soft px-3.5 py-3 active:opacity-80">
+      <Ionicons name={internal ? 'bookmark' : 'link'} size={16} color="#2563eb" />
+      <Text className="flex-1 text-[14.5px] font-semibold leading-5 text-info">{nodeText(node.children).trim()}</Text>
+      {internal ? null : <Ionicons name="chevron-forward" size={15} color="#2563eb" />}
+    </Pressable>
+  );
+}
 
 const hasBlockChild = (nodes: HtmlNode[]): boolean =>
   nodes.some((n) => n.type === 'el' && (BLOCK_TAGS.has(n.tag) || hasBlockChild(n.children)));
@@ -209,7 +269,7 @@ function Inline({ nodes, bold, italic }: { nodes: HtmlNode[]; bold?: boolean; it
               <Text
                 key={i}
                 className="text-info underline"
-                onPress={href ? () => void Linking.openURL(href) : undefined}>
+                onPress={href && !href.startsWith('#') ? () => openHref(href) : undefined}>
                 <Inline nodes={node.children} bold={bold} italic={italic} />
               </Text>
             );
@@ -245,30 +305,26 @@ function Block({ node, token, width }: { node: HtmlNode; token?: string; width: 
     case 'img': {
       const uri = resolveMediaUrl(attrs.src, token);
       if (!uri) return null;
-      const w = Number(attrs.width) || 0;
-      const h = Number(attrs.height) || 0;
-      const ratio = w > 0 && h > 0 ? w / h : 16 / 9;
-      return (
-        <Image
-          source={{ uri, cacheKey: mediaCacheKey(attrs.src) }}
-          style={{ width: width, height: width / ratio, borderRadius: 12 }}
-          contentFit="contain"
-          transition={120}
-        />
-      );
+      return <HtmlImage uri={uri} cacheKey={mediaCacheKey(attrs.src)} width={width} w={Number(attrs.width) || 0} h={Number(attrs.height) || 0} />;
     }
 
     case 'ul':
     case 'ol':
       return (
-        <View className="gap-1.5">
+        <View className="gap-2">
           {children
             .filter((c): c is ElementNode => c.type === 'el' && c.tag === 'li')
             .map((li, i) => (
-              <View key={i} className="flex-row gap-2">
-                <Text className="text-[15px] leading-6 text-muted">{tag === 'ol' ? `${i + 1}.` : '•'}</Text>
+              <View key={i} className="flex-row gap-2.5">
+                {tag === 'ol' ? (
+                  <View className="mt-0.5 h-5 min-w-5 items-center justify-center rounded-full bg-brand-soft px-1">
+                    <Text className="text-[11.5px] font-bold text-brand">{i + 1}</Text>
+                  </View>
+                ) : (
+                  <View className="mt-[9px] h-1.5 w-1.5 rounded-full bg-brand" />
+                )}
                 <View className="flex-1 gap-1.5">
-                  <Blocks nodes={li.children} token={token} width={width - 20} />
+                  <Blocks nodes={li.children} token={token} width={width - 22} />
                 </View>
               </View>
             ))}
@@ -277,8 +333,8 @@ function Block({ node, token, width }: { node: HtmlNode; token?: string; width: 
 
     case 'blockquote':
       return (
-        <View className="gap-1.5 border-l-2 border-brand pl-3">
-          <Blocks nodes={children} token={token} width={width - 16} />
+        <View className="gap-1.5 rounded-2xl border-l-4 border-brand bg-brand-soft px-3.5 py-3">
+          <Blocks nodes={children} token={token} width={width - 32} />
         </View>
       );
 
@@ -320,10 +376,12 @@ function Block({ node, token, width }: { node: HtmlNode; token?: string; width: 
     default: {
       // p, figcaption và mọi thẻ còn lại: nếu bên trong có thẻ khối thì đi tiếp, không thì in chữ.
       if (hasBlockChild(children)) return <Blocks nodes={children} token={token} width={width} />;
+      const link = tag === 'p' ? soleLink(children) : null;
+      if (link) return <LinkRow node={link} />;
       const text = nodeText(children);
       if (!text.trim()) return null;
       return (
-        <Text className={`text-[15px] leading-6 ${tag === 'figcaption' ? 'text-muted' : 'text-foreground'}`} selectable>
+        <Text className={`text-[15.5px] leading-[25px] ${tag === 'figcaption' ? 'text-center text-[13px] text-muted' : 'text-foreground'}`}>
           <Inline nodes={children} />
         </Text>
       );
@@ -341,14 +399,24 @@ function Blocks({ nodes, token, width }: { nodes: HtmlNode[]; token?: string; wi
   );
 }
 
-export const HtmlView = memo(function HtmlView({ html, width }: { html?: string | null; width?: number }) {
+export const HtmlView = memo(function HtmlView({
+  html,
+  width,
+  onImagePress,
+}: {
+  html?: string | null;
+  width?: number;
+  onImagePress?: (uri: string) => void;
+}) {
   const { width: screenWidth } = useWindowDimensions();
   const { data } = useMediaToken();
   const nodes = useMemo(() => parseHtml(html || ''), [html]);
   if (!html?.trim()) return null;
   return (
-    <View className="gap-2.5">
-      <Blocks nodes={nodes} token={data?.media_token} width={width ?? screenWidth - 64} />
-    </View>
+    <ImagePressContext.Provider value={onImagePress}>
+      <View className="gap-3">
+        <Blocks nodes={nodes} token={data?.media_token} width={width ?? screenWidth - 64} />
+      </View>
+    </ImagePressContext.Provider>
   );
 });

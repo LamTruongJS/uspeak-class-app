@@ -198,6 +198,8 @@ export const StaffClassCard = memo(function StaffClassCard({
     iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
   const dates = [fmt(item.start_date), fmt(item.end_date)].filter(Boolean).join(' → ');
   const statusTone = status.tone === 'success' ? 'success' : status.tone === 'neutral' ? 'dark' : 'light';
+  const max = item.max_students && item.max_students < 10000 ? item.max_students : null;
+  const fill = max ? Math.round((item.active_students / max) * 100) : 0;
 
   return (
     <Pressable
@@ -228,28 +230,24 @@ export const StaffClassCard = memo(function StaffClassCard({
         {item.class_time ? <Meta icon="time-outline" color={muted} text={item.class_time} /> : null}
         {dates ? <Meta icon="calendar-outline" color={muted} text={dates} /> : null}
 
-        <View className="flex-row gap-2 pt-1">
-          <Stat
-            color={muted}
-            icon="people"
-            label="Học viên"
-            value={item.max_students ? `${item.active_students}/${item.max_students}` : String(item.active_students)}
-          />
-          <Stat color={muted} icon="document-text" label="Bài tập" value={String(item.assignment_count ?? 0)} />
+        {/* Sĩ số dạng thanh như thanh tiến độ ở thẻ lớp học viên (sĩ số tối đa ≥10.000 = không giới hạn) */}
+        <View className="gap-1.5 pt-0.5">
+          <View className="flex-row justify-between">
+            <Text className="text-[13px] text-muted">
+              Học viên <Text className="font-semibold text-foreground">{item.active_students}</Text>
+              {max ? <Text className="text-muted">/{max}</Text> : null}
+              <Text className="text-muted"> · {item.assignment_count ?? 0} bài tập</Text>
+            </Text>
+            {max ? <Text className={`text-[13px] font-bold ${fill >= 90 ? 'text-warning' : 'text-info'}`}>{fill}%</Text> : null}
+          </View>
+          {max ? (
+            <View className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
+              <View className={`h-full rounded-full ${fill >= 90 ? 'bg-warning' : 'bg-info'}`} style={{ width: `${Math.min(100, fill)}%` }} />
+            </View>
+          ) : null}
         </View>
       </View>
     </Pressable>
   );
 });
 
-function Stat({ icon, label, value, color }: { icon: IconName; label: string; value: string; color: string }) {
-  return (
-    <View className="flex-1 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3 py-2">
-      <Ionicons name={icon} size={16} color={color} />
-      <View>
-        <Text className="text-[15px] font-bold text-foreground">{value}</Text>
-        <Text className="text-[11px] text-muted">{label}</Text>
-      </View>
-    </View>
-  );
-}

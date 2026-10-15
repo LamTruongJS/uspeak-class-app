@@ -19,7 +19,9 @@ export interface GradingHistoryItem {
   assignment_id: string;
   assignment_title: string;
   class_name: string;
+  class_code?: string;
   student_name: string;
+  student_avatar?: string;
   status: string;
   attempt_number: number;
   submitted_at: string;
@@ -27,6 +29,8 @@ export interface GradingHistoryItem {
   grading_time_seconds: number;
   my_grading_status: 'graded' | 'in_progress' | 'left';
   session_number?: string;
+  my_started_at?: string | null;
+  updated_at?: string | null;
 }
 
 interface RequestBase {
@@ -78,9 +82,15 @@ export const REQUEST_STATUS_FILTERS = [
 ];
 
 export const GRADING_HISTORY_FILTERS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'completed', label: 'Đã nhận xét' },
+  { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'submitted', label: 'Chờ nhận xét' },
   { value: 'claimed', label: 'Đang nhận xét' },
+  { value: 'waiting_review', label: 'Chờ review nhận xét' },
+  { value: 'completed', label: 'Đã nhận xét' },
+  { value: 'redo_requested', label: 'Yêu cầu làm lại' },
+  { value: 'regrade_requested', label: 'Yêu cầu nhận xét lại' },
+  { value: 'reassigned', label: 'Đã chuyển giao bài' },
+  { value: 'timeout', label: 'Hết giờ' },
 ];
 
 function paged<T>(key: unknown[], path: string, params: Record<string, string | number | undefined>) {
@@ -98,8 +108,6 @@ export function useMyGradingHistory(params: { status: string; search: string }) 
     paged<GradingHistoryItem>(['grading', 'history', params], '/assignments/my-grading-history', {
       status: params.status === 'all' ? undefined : params.status,
       search: params.search || undefined,
-      sort_by: 'graded_at',
-      sort_order: 'desc',
     }),
   );
 }

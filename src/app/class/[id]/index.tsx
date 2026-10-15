@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams, type Href } from 'expo-router';
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { Alert, Animated, Linking, Pressable, RefreshControl, Text, View } from 'react-native';
+import { Animated, Linking, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { CollapsingTopBar, CoverStatusBar, useCollapsingHeader } from '@/components/ui/collapsing-header';
 import { LoadingView, StateView } from '@/components/ui/state-view';
+import { CLASS_CONTENT_3D_ICONS } from '@/constants/three-d-icons';
 import { SUPPORT_HOTLINE, SUPPORT_HOTLINE_TEL } from '@/constants/support';
 import { useChatRooms } from '@/features/chat/api';
 import { useActiveClassNotifications } from '@/features/class-notifications/api';
@@ -37,6 +40,7 @@ export default function ClassDetailScreen() {
   const insets = useSafeAreaInsets();
   const brand = useThemeColor('brand');
   const [qrOpen, setQrOpen] = useState(false);
+  const sheet = useActionSheet();
 
   const classQuery = useClassInfo(id);
   const info = classQuery.data;
@@ -104,10 +108,14 @@ export default function ClassDetailScreen() {
   const debt = Number(info.remaining_debt || 0);
   const openChat = () => classRoom && router.push({ pathname: '/chat/[roomId]', params: { roomId: classRoom._id } });
   const callHotline = () =>
-    Alert.alert('Gọi hỗ trợ', `Gọi hotline ${SUPPORT_HOTLINE}?`, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Gọi', onPress: () => void Linking.openURL(SUPPORT_HOTLINE_TEL) },
-    ]);
+    sheet.confirm({
+      title: 'Gọi hỗ trợ',
+      message: `Gọi hotline ${SUPPORT_HOTLINE}?`,
+      label: 'Gọi ngay',
+      icon: 'call-outline',
+      danger: false,
+      onConfirm: () => void Linking.openURL(SUPPORT_HOTLINE_TEL),
+    });
 
   const go = (section: 'assignments' | 'attendance' | 'report' | 'notifications', params?: Record<string, string>) =>
     router.push({ pathname: `/class/[id]/${section}`, params: { id, ...params } });
@@ -182,6 +190,7 @@ export default function ClassDetailScreen() {
           {elearningNodes.length ? (
             <MenuRow
               icon="play-circle"
+              icon3d={CLASS_CONTENT_3D_ICONS.elearning}
               tone="brand"
               title="E-Learning"
               subtitle={`Đã học ${elearningDone}/${elearningNodes.length} mục`}
@@ -196,6 +205,7 @@ export default function ClassDetailScreen() {
 
           <MenuRow
             icon="document-text"
+            icon3d={CLASS_CONTENT_3D_ICONS.assignments}
             tone="info"
             title="Bài tập"
             subtitle={info.total_assignments ? `${submitted}/${info.total_assignments} bài đã nộp` : 'Chưa có bài tập nào'}
@@ -205,6 +215,7 @@ export default function ClassDetailScreen() {
 
           <MenuRow
             icon="calendar"
+            icon3d={CLASS_CONTENT_3D_ICONS.attendance}
             tone="success"
             title="Điểm danh"
             subtitle={att && att.total_sessions ? `Có mặt ${att.attended_sessions}/${att.total_sessions} buổi` : 'Chưa có buổi nào'}
@@ -213,6 +224,7 @@ export default function ClassDetailScreen() {
 
           <MenuRow
             icon="bar-chart"
+            icon3d={CLASS_CONTENT_3D_ICONS.report}
             tone="violet"
             title="Báo cáo học tập"
             subtitle="Điểm từng bài, chuyên cần, nhận xét"
@@ -249,6 +261,7 @@ export default function ClassDetailScreen() {
         }
       />
 
+      {sheet.sheet}
       {info.qr_code && debt > 0 ? (
         <PaymentQrSheet visible={qrOpen} onClose={() => setQrOpen(false)} qr={info.qr_code} amount={debt} />
       ) : null}
@@ -267,6 +280,7 @@ const TONE_BG: Record<string, string> = {
 /** Một mục trong danh sách nội dung lớp: icon màu + tên + dòng số liệu + số việc cần làm. */
 function MenuRow({
   icon,
+  icon3d,
   tone,
   title,
   subtitle,
@@ -274,6 +288,7 @@ function MenuRow({
   onPress,
 }: {
   icon: ComponentProps<typeof Ionicons>['name'];
+  icon3d?: number;
   tone: keyof typeof TONE_BG;
   title: string;
   subtitle: string;
@@ -286,8 +301,12 @@ function MenuRow({
     <Pressable
       onPress={onPress}
       className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface px-3.5 py-3 active:bg-surface-muted">
-      <View className={`h-11 w-11 items-center justify-center rounded-2xl ${TONE_BG[tone]}`}>
-        <Ionicons name={icon} size={21} color={color} />
+      <View className={`h-11 w-11 items-center justify-center overflow-hidden rounded-2xl ${icon3d ? '' : TONE_BG[tone]}`}>
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 42, height: 42 }} contentFit="contain" />
+        ) : (
+          <Ionicons name={icon} size={21} color={color} />
+        )}
       </View>
       <View className="flex-1">
         <Text className="text-[15px] font-bold text-foreground">{title}</Text>

@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { WEB_URL } from '@/config/env';
 import { plainText } from '@/features/assignments/api';
@@ -312,7 +313,7 @@ export function AnnouncementCard({ message, myId }: { message: ChatMessage; myId
         }));
       }
     } catch (err) {
-      Alert.alert('Chưa xác nhận được', getErrorMessage(err));
+      showToast('error', 'Chưa xác nhận được', getErrorMessage(err));
     } finally {
       setAcking(false);
     }

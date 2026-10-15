@@ -15,13 +15,24 @@ const fmtScore = (v: number | null | undefined) =>
  * và nút nhắn riêng. Dùng chung để hai màn không lệch cách tính màu / cách hiển thị.
  */
 export const StudentRow = memo(
-function StudentRow({ s, opening, onMessage }: { s: ClassStudentStats; opening: boolean; onMessage: () => void }) {
+function StudentRow({
+  s,
+  opening,
+  onMessage,
+  onMore,
+}: {
+  s: ClassStudentStats;
+  opening: boolean;
+  onMessage: () => void;
+  /** Có quyền quản lý (khoá tài khoản / bảo lưu) → nút ⋯ */
+  onMore?: () => void;
+}) {
   const brand = useThemeColor('brand');
   const rate = Math.round(Math.min(100, Math.max(0, s.completion_rate)));
   const bar = rate >= 80 ? 'bg-success' : rate >= 50 ? 'bg-info' : rate >= 20 ? 'bg-warning' : 'bg-danger';
   const att = s.attendance_stats && s.attendance_stats.total_sessions > 0 ? s.attendance_stats : null;
   return (
-    <View className="gap-2.5 rounded-2xl border border-border bg-surface p-3.5">
+    <View className="gap-2.5 rounded-3xl bg-surface p-3.5">
       <View className="flex-row items-center gap-3">
         <Avatar name={s.name} size={40} />
         <View className="flex-1">
@@ -31,6 +42,12 @@ function StudentRow({ s, opening, onMessage }: { s: ClassStudentStats; opening: 
           <Text className="text-xs text-muted" numberOfLines={1}>
             {s.phone || s.email || '—'}
           </Text>
+          {s.isActive === false ? (
+            <View className="mt-0.5 flex-row items-center gap-1 self-start rounded-full bg-danger-soft px-2 py-0.5">
+              <Ionicons name="lock-closed" size={10} color="#dc2626" />
+              <Text className="text-[10.5px] font-bold text-danger">Đã khoá tài khoản</Text>
+            </View>
+          ) : null}
         </View>
         <Pressable
           onPress={onMessage}
@@ -40,6 +57,15 @@ function StudentRow({ s, opening, onMessage }: { s: ClassStudentStats; opening: 
           accessibilityLabel="Nhắn tin">
           {opening ? <ActivityIndicator size="small" color={brand} /> : <Ionicons name="chatbubble" size={16} color={brand} />}
         </Pressable>
+        {onMore ? (
+          <Pressable
+            onPress={onMore}
+            hitSlop={6}
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
+            accessibilityLabel="Thao tác khác">
+            <Ionicons name="ellipsis-horizontal" size={17} color="#6b7280" />
+          </Pressable>
+        ) : null}
       </View>
       <View className="gap-1">
         <View className="flex-row justify-between">

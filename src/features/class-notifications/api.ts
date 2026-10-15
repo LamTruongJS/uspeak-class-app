@@ -122,3 +122,33 @@ export function useMarkClassNotificationRead(classId: string) {
     },
   });
 }
+
+// ─── Quản lý (nhân sự) — POST/PATCH/DELETE /class-notifications như hộp thoại tạo thông báo của web ───
+
+export interface ClassNotificationPayload {
+  title: string;
+  content?: string;
+  attachments?: Pick<ClassNotificationAttachment, 'key' | 'name' | 'type' | 'size'>[];
+  video_url?: string;
+  visible_from?: string;
+  visible_until?: string | null;
+}
+
+export function useManageClassNotification(classId: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['class-notifications'] });
+  const save = useMutation({
+    mutationFn: async (v: { id?: string; data: ClassNotificationPayload }) => {
+      if (v.id) await api.patch(`/class-notifications/${v.id}`, v.data);
+      else await api.post(`/class-notifications/${classId}`, v.data);
+    },
+    onSuccess: () => void refresh(),
+  });
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/class-notifications/${id}`);
+    },
+    onSuccess: () => void refresh(),
+  });
+  return { save, remove };
+}

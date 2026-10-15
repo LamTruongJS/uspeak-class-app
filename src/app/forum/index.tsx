@@ -4,18 +4,23 @@ import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/ui/avatar';
 import { Segmented } from '@/components/ui/segmented';
 import { StateView } from '@/components/ui/state-view';
 import { useForumClasses, useForumPosts, useToggleReaction, type ForumPost } from '@/features/forum/api';
 import { ForumPostCard } from '@/features/forum/post-card';
 import { getErrorMessage } from '@/lib/api/client';
+import { resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
+import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 /** Diễn đàn — bảng tin chung hoặc theo lớp, bản mobile của web /forum. */
 export default function ForumScreen() {
   const brand = useThemeColor('brand');
   const [classId, setClassId] = useState('all');
+  const user = useAuthStore((s) => s.user);
+  const { data: media } = useMediaToken();
 
   const classes = useForumClasses();
   const posts = useForumPosts(classId === 'all' ? undefined : classId);
@@ -34,11 +39,13 @@ export default function ForumScreen() {
   const header = (
     <View className="gap-3 pb-1">
       {classItems.length > 1 ? <Segmented variant="chip" value={classId} onChange={setClassId} items={classItems} /> : null}
-      <Pressable
-        onPress={() => router.push('/forum/new')}
-        className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-brand active:opacity-80">
-        <Ionicons name="create-outline" size={20} color="#fff" />
-        <Text className="text-base font-semibold text-on-brand">Viết bài mới</Text>
+      {/* Ô "đang nghĩ gì" kiểu Facebook thay cho nút đỏ to kiểu web */}
+      <Pressable onPress={() => router.push('/forum/new')} className="flex-row items-center gap-3 rounded-3xl bg-surface p-3 active:opacity-90">
+        <Avatar name={user?.name} uri={resolveMediaUrl(user?.avatar, media?.media_token)} size={40} />
+        <View className="h-10 flex-1 justify-center rounded-full bg-surface-muted px-4">
+          <Text className="text-[14.5px] text-muted">Bạn muốn chia sẻ điều gì?</Text>
+        </View>
+        <Ionicons name="images" size={22} color="#059669" />
       </Pressable>
     </View>
   );
@@ -52,7 +59,7 @@ export default function ForumScreen() {
         keyExtractor={(p: ForumPost) => p._id}
         ListHeaderComponent={header}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        ItemSeparatorComponent={() => <View className="h-2.5" />}
+        ItemSeparatorComponent={() => <View className="h-3" />}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}
         onEndReachedThreshold={0.5}
         onEndReached={() => {

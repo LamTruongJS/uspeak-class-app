@@ -7,11 +7,24 @@ import type { SessionTokens } from '@/lib/auth/token-storage';
 /** AD quản trị · TE giáo viên · TA trợ giảng · TG nhận xét bài · ST học viên */
 export type RoleCode = 'AD' | 'TE' | 'TA' | 'TG' | 'ST' | (string & {});
 
+/** Thông tin nhận tiền công nhận xét (chỉ nhân sự) — khớp `payment_info` của CRM. */
+export interface PaymentInfo {
+  /** Mã ngân hàng VietQR — CRM dựng ảnh QR theo mã này */
+  bank_code?: string;
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  cccd_number?: string;
+  cccd_issued_date?: string;
+  cccd_issued_place?: string;
+}
+
 export interface User {
   _id: string;
   name: string;
   email: string;
   phone?: string;
+  payment_info?: PaymentInfo;
   role_code?: RoleCode;
   avatar?: string;
   class_systemmode?: string;

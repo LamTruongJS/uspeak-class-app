@@ -3,10 +3,11 @@ import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import { Alert, BackHandler, FlatList, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { BackHandler, FlatList, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { useMediaToken, resolveMediaUrl } from '@/lib/media';
 import { useKeyboardHeight } from '@/lib/use-keyboard-height';
@@ -145,22 +146,10 @@ export function Composer(props: Props) {
     return list;
   }, [mention, members, myId, isDirect]);
 
-  /**
-   * Android: giữ con trỏ khi mở bảng biểu tượng. `showSoftInputOnFocus={false}` làm ô nhập vẫn
-   * FOCUS (con trỏ nhấp nháy, chèn đúng chỗ) mà không bật bàn phím. iOS không có prop này nên
-   * vẫn phải nhả focus — khác biệt duy nhất giữa 2 nền tảng.
-   */
-  const keepCaret = Platform.OS === 'android' && emojiPanel;
-  // Đang trong lúc đổi bàn phím ↔ bảng: bỏ qua sự kiện bàn phím, không thì cú `blur/focus` bên
-  // dưới tự đóng mất bảng vừa mở.
-  const switching = useRef(false);
-
   // Bàn phím bật lên (bấm vào ô nhập, chọn trả lời, bắt đầu sửa tin…) thì bảng biểu tượng phải
-  // nhường chỗ — không thì hai thứ chồng nhau, ô nhập bị đẩy vọt lên giữa màn hình.
+  // nhường chỗ — bảng và bàn phím KHÔNG BAO GIỜ cùng hiện (như Messenger / Zalo).
   useEffect(() => {
-    const sub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
-      if (!switching.current) setEmojiPanel(false);
-    });
+    const sub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setEmojiPanel(false));
     return () => sub.remove();
   }, []);
 
@@ -175,18 +164,15 @@ export function Composer(props: Props) {
   }, [emojiPanel]);
 
   /**
-   * Bật lại bàn phím. Trên Android ô nhập ĐANG focus sẵn (keepCaret) nên gọi `focus()` không ăn
-   * thua — RN thấy đã focus rồi là bỏ qua, bàn phím không lên. Phải nhả rồi bắt lại focus,
-   * lúc này `showSoftInputOnFocus` đã về true nên bàn phím mới chịu hiện.
+   * Bảng biểu tượng THAY CHỖ bàn phím: mở bảng = hạ hẳn bàn phím (`Keyboard.dismiss`), bấm lại = đóng
+   * bảng + focus ô nhập cho bàn phím lên. Mất con trỏ nhấp nháy trong lúc mở bảng nhưng vị trí chèn
+   * vẫn đúng vì đã nhớ `selection`.
+   * KHÔNG dùng mẹo `showSoftInputOnFocus={false}` + blur/focus để giữ con trỏ trên Android: prop
+   * chưa kịp xuống native thì focus lại bật bàn phím → bàn phím và bảng chồng lên nhau (lỗi 15/10/2026).
    */
   const showKeyboard = () => {
     setEmojiPanel(false);
-    switching.current = true;
-    requestAnimationFrame(() => {
-      inputRef.current?.blur();
-      inputRef.current?.focus();
-      setTimeout(() => (switching.current = false), 400);
-    });
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const toggleEmojiPanel = () => {
@@ -196,20 +182,7 @@ export function Composer(props: Props) {
     }
     // Mở bảng TRƯỚC rồi mới hạ bàn phím: lúc bàn phím trượt xuống thì bảng đã nằm sẵn ở đó.
     setEmojiPanel(true);
-    if (Platform.OS !== 'android') {
-      Keyboard.dismiss();
-      return;
-    }
-    // Android: `showSoftInputOnFocus={false}` chỉ CHẶN bàn phím lúc focus, không ẩn bàn phím đang
-    // mở; còn `Keyboard.dismiss()` thì nhả luôn focus (mất con trỏ). Nên nhả rồi bắt lại focus:
-    // blur hạ bàn phím, focus lại lấy con trỏ về mà bàn phím không bật nữa. Đợi 1 khung hình cho
-    // prop kịp xuống native, không thì focus lại gặp prop cũ và bàn phím bật lên ngay.
-    switching.current = true;
-    requestAnimationFrame(() => {
-      inputRef.current?.blur();
-      inputRef.current?.focus();
-      setTimeout(() => (switching.current = false), 400);
-    });
+    Keyboard.dismiss();
   };
 
   /** Chèn biểu tượng tại vị trí con trỏ (không gửi) — cùng cách làm với chèn @nhắc tên. */
@@ -323,8 +296,9 @@ export function Composer(props: Props) {
             </Animated.View>
           ) : (
             <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(80)} className="flex-row">
+              {/* Chỉ 3 nút nhanh: 4 nút chiếm gần nửa bề ngang, ô nhập còn chưa tới 150dp.
+                  "Chụp ảnh" nằm sẵn trong bảng đính kèm (nút +) nên bỏ khỏi hàng nhanh. */}
               <ToolButton icon="add-circle" label="Đính kèm" color={brand} size={25} onPress={() => setAttachOpen(true)} />
-              <ToolButton icon="camera" label="Chụp ảnh" color={brand} onPress={() => void pickers.camera(false)} />
               <ToolButton icon="image" label="Ảnh / video" color={brand} onPress={() => void pickers.library()} />
               <ToolButton icon="mic" label="Ghi âm tin thoại" color={brand} onPress={() => setRecording(true)} />
             </Animated.View>
@@ -348,7 +322,6 @@ export function Composer(props: Props) {
             }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            showSoftInputOnFocus={!keepCaret}
             onPressIn={() => {
               // Đang mở bảng mà bấm vào ô nhập = muốn gõ chữ tiếp (bấm thường thì KHÔNG đụng vào,
               // không thì mỗi lần chạm ô nhập lại nhả/bắt focus, con trỏ nhảy lung tung).
@@ -509,7 +482,7 @@ function useMediaPickers(onMedia: (assets: PickedAsset[]) => void, onFiles: (doc
     camera: async (video: boolean) => {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
+        showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
         return;
       }
       const res = await ImagePicker.launchCameraAsync({ mediaTypes: [video ? 'videos' : 'images'], quality: 1, videoMaxDuration: 300 });

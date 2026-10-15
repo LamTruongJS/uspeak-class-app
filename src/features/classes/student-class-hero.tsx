@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
 import { ProgressRing } from '@/components/ui/progress-ring';
+import { CLASS_QUICK_ACTION_3D_ICONS } from '@/constants/three-d-icons';
 import { avatarColor } from '@/features/chat/room-avatar';
 import { formatDate, formatVnd, WEEKDAY_SHORT } from '@/lib/format';
 import { mediaCacheKey, resolveMediaUrl } from '@/lib/media';
@@ -246,6 +247,7 @@ export function DebtAlert({
 export interface QuickAction {
   key: string;
   icon: IconName;
+  icon3d?: number;
   label: string;
   tone: 'brand' | 'info' | 'violet' | 'success' | 'warning';
   badge?: number;
@@ -274,6 +276,7 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
 
 function ActionTile({ action }: { action: QuickAction }) {
   const color = useThemeColor(action.tone as ThemeColor);
+  const icon3d = action.icon3d ?? CLASS_QUICK_ACTION_3D_ICONS[action.key];
   return (
     <Pressable
       accessibilityRole="button"
@@ -281,8 +284,13 @@ function ActionTile({ action }: { action: QuickAction }) {
       onPress={action.onPress}
       disabled={action.disabled}
       className={`flex-1 items-center gap-1.5 active:opacity-70 ${action.disabled ? 'opacity-40' : ''}`}>
-      <View className={`h-12 w-12 items-center justify-center rounded-2xl ${TONE_BG[action.tone]}`}>
-        <Ionicons name={action.icon} size={22} color={color} />
+      <View
+        className={`h-12 w-12 items-center justify-center overflow-hidden rounded-2xl ${icon3d ? '' : TONE_BG[action.tone]}`}>
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 46, height: 46 }} contentFit="contain" />
+        ) : (
+          <Ionicons name={action.icon} size={22} color={color} />
+        )}
         {action.badge ? (
           <View className="absolute -right-1.5 -top-1.5 min-w-[18px] items-center rounded-full border-2 border-surface bg-danger px-1">
             <Text className="text-[10px] font-bold text-white">{action.badge > 99 ? '99+' : action.badge}</Text>

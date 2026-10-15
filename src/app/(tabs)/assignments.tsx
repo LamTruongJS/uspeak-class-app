@@ -160,11 +160,11 @@ function StudentAssignments() {
               onPress={() => setStatus(f.value)}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              className={`h-9 flex-row items-center gap-1.5 rounded-full px-4 active:opacity-80 ${on ? 'bg-foreground' : 'bg-surface-muted'}`}>
-              <Text className={`text-[14px] font-semibold ${on ? 'text-background' : 'text-muted'}`}>{f.label}</Text>
+              className={`h-9 flex-row items-center gap-1.5 rounded-full px-4 active:opacity-80 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
+              <Text className={`text-[14px] font-semibold ${on ? 'text-on-brand' : 'text-muted'}`}>{f.label}</Text>
               {badge > 0 ? (
-                <View className="h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1">
-                  <Text className="text-[10.5px] font-bold text-on-brand">{badge > 99 ? '99+' : badge}</Text>
+                <View className={`h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 ${on ? 'bg-on-brand' : 'bg-brand'}`}>
+                  <Text className={`text-[10.5px] font-bold ${on ? 'text-brand' : 'text-on-brand'}`}>{badge > 99 ? '99+' : badge}</Text>
                 </View>
               ) : null}
             </Pressable>

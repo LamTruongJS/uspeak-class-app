@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef, type ListRenderItem } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActionSheet, type SheetOptions } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
+import { showToast } from '@/components/ui/toast';
 import { StateView } from '@/components/ui/state-view';
 import { chatApi, patchRoom, useChatRooms } from '@/features/chat/api';
 import { plainContent, roomTime, roomTitle } from '@/features/chat/format';
@@ -44,7 +46,7 @@ function matchFilter(r: ChatRoomItem, f: Filter) {
   }
 }
 
-const ROW_HEIGHT = 78;
+const ROW_HEIGHT = 76;
 
 interface RowColors {
   muted: string;
@@ -142,8 +144,8 @@ export default function ChatRoomsScreen() {
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top + 8 }}>
       {/* ── Đầu trang: tiêu đề + soạn tin, ô tìm, bộ lọc — cố định, không cuộn theo danh sách ── */}
       <View className="px-4">
-        <View className="flex-row items-center justify-between pb-3">
-          <Text className="text-[30px] font-extrabold tracking-tight text-foreground">Đoạn chat</Text>
+        <View className="flex-row items-center justify-between pb-2.5">
+          <Text className="text-[27px] font-extrabold tracking-tight text-foreground">Đoạn chat</Text>
           <Pressable
             onPress={() => router.push('/chat/new')}
             hitSlop={8}
@@ -174,11 +176,9 @@ export default function ChatRoomsScreen() {
       {searching ? (
         <Text className="px-5 pb-1 pt-3 text-[13px] font-semibold text-muted">{rooms.length ? `${rooms.length} cuộc trò chuyện` : ''}</Text>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="max-h-[60px] grow-0"
-          contentContainerClassName="gap-2 px-4 py-3">
+        // Xuống dòng chứ không cuộn ngang: cuộn ngang thì chip cuối luôn bị cắt dở ở mép phải,
+        // người dùng không biết còn mục nào phía sau (cùng cách làm với màn Lớp học).
+        <View className="flex-row flex-wrap gap-1.5 px-4 pb-2.5 pt-3">
           {FILTERS.map((f) => {
             const on = filter === f.key;
             const count = unreadBy[f.key];
@@ -188,17 +188,18 @@ export default function ChatRoomsScreen() {
                 onPress={() => setFilter(f.key)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
-                className={`h-9 flex-row items-center gap-1.5 rounded-full px-4 active:opacity-80 ${on ? 'bg-foreground' : 'bg-surface-muted'}`}>
-                <Text className={`text-[14px] font-semibold ${on ? 'text-background' : 'text-muted'}`}>{f.label}</Text>
+                className={`h-8 flex-row items-center gap-1.5 rounded-full px-3 active:opacity-80 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
+                <Text className={`text-[13.5px] font-semibold ${on ? 'text-on-brand' : 'text-muted'}`}>{f.label}</Text>
                 {count > 0 ? (
-                  <View className="h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1">
-                    <Text className="text-[10.5px] font-bold text-on-brand">{count > 99 ? '99+' : count}</Text>
+                  <View
+                    className={`h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 ${on ? 'bg-on-brand' : 'bg-brand-soft'}`}>
+                    <Text className={`text-[10px] font-bold ${on ? 'text-brand' : 'text-brand'}`}>{count > 99 ? '99+' : count}</Text>
                   </View>
                 ) : null}
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       )}
 
       {isLoading ? (
@@ -213,11 +214,16 @@ export default function ChatRoomsScreen() {
         />
       ) : (
         <FlashList
+          // Đổi bộ lọc = dựng lại danh sách (key). Thiếu nó thì danh sách giữ nguyên vị trí cuộn cũ
+          // và dòng đầu không được vẽ lại — còn một khoảng trống mà bấm vào vẫn mở đúng phòng.
+          // `scrollToOffset(0)` không cứu được vì chạy trước lúc danh sách đo lại.
+          key={filter}
           ref={listRef}
           data={rooms}
-          // FlashList v2 mặc định giữ nguyên dòng đang nhìn khi dữ liệu đổi — với danh sách chat thì sai:
-          // phòng có tin mới nhảy lên đầu phải thấy ngay, đổi lọc/tìm thì danh sách mới phải vẽ từ đầu.
-          maintainVisibleContentPosition={{ disabled: true }}
+          // Giữ nguyên dòng đang nhìn khi có tin mới chen lên đầu, nhưng đang ở gần đầu danh sách thì
+          // tự cuộn lên để thấy phòng vừa có tin. TẮT HẲN (`disabled: true`) thì thỉnh thoảng dòng đầu
+          // không được vẽ lại sau khi đổi lọc / đổi giao diện — còn chỗ trống bấm vào vẫn mở đúng phòng.
+          maintainVisibleContentPosition={{ autoscrollToTopThreshold: 120 }}
           keyExtractor={(r) => r._id}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
@@ -242,74 +248,53 @@ export default function ChatRoomsScreen() {
           }
         />
       )}
-      <RoomMenu room={menuRoom} onClose={() => setMenuRoomId(null)} />
+      <RoomActionSheet room={menuRoom} onClose={() => setMenuRoomId(null)} />
     </View>
   );
 }
 
-/** Menu nhấn giữ: tắt/bật thông báo, thông tin phòng. */
-function RoomMenu({ room, onClose }: { room: ChatRoomItem | null; onClose: () => void }) {
-  const insets = useSafeAreaInsets();
-  const foreground = useThemeColor('foreground');
+/**
+ * Menu nhấn giữ một phòng — dùng thẳng `ActionSheet` chung của app (không tự vẽ modal nữa)
+ * để trông giống mọi bảng chọn khác: cùng bo góc, cùng nút Huỷ, cùng kiểu đóng rồi mới chạy.
+ */
+function RoomActionSheet({ room, onClose }: { room: ChatRoomItem | null; onClose: () => void }) {
   const muted = !!room?.notifications_muted;
 
-  async function toggleMute() {
-    if (!room) return;
-    onClose();
-    patchRoom(room._id, (r) => ({ ...r, notifications_muted: !muted }));
+  async function toggleMute(id: string) {
+    patchRoom(id, (r) => ({ ...r, notifications_muted: !muted }));
     try {
-      await chatApi.setNotificationsMuted(room._id, !muted);
+      await chatApi.setNotificationsMuted(id, !muted);
+      showToast(muted ? 'success' : 'info', muted ? 'Đã bật thông báo' : 'Đã tắt thông báo');
     } catch (err) {
-      patchRoom(room._id, (r) => ({ ...r, notifications_muted: muted }));
-      Alert.alert('Chưa lưu được', getErrorMessage(err));
+      patchRoom(id, (r) => ({ ...r, notifications_muted: muted }));
+      showToast('error', 'Chưa lưu được', getErrorMessage(err));
     }
   }
 
-  const items: { icon: ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }[] = room
-    ? [
-        {
-          icon: 'chatbubble-outline',
-          label: 'Mở cuộc trò chuyện',
-          onPress: () => (onClose(), router.push({ pathname: '/chat/[roomId]', params: { roomId: room._id } })),
-        },
-        {
-          icon: muted ? 'notifications-outline' : 'notifications-off-outline',
-          label: muted ? 'Bật thông báo' : 'Tắt thông báo',
-          onPress: () => void toggleMute(),
-        },
-        {
-          icon: 'information-circle-outline',
-          label: 'Thông tin phòng',
-          onPress: () => (onClose(), router.push({ pathname: '/chat/info/[roomId]', params: { roomId: room._id } })),
-        },
-      ]
-    : [];
+  const options: SheetOptions | null = room
+    ? {
+        title: roomTitle(room),
+        actions: [
+          {
+            icon: 'chatbubble-outline',
+            label: 'Mở cuộc trò chuyện',
+            onPress: () => router.push({ pathname: '/chat/[roomId]', params: { roomId: room._id } }),
+          },
+          {
+            icon: muted ? 'notifications-outline' : 'notifications-off-outline',
+            label: muted ? 'Bật thông báo' : 'Tắt thông báo',
+            onPress: () => void toggleMute(room._id),
+          },
+          {
+            icon: 'information-circle-outline',
+            label: 'Thông tin phòng',
+            onPress: () => router.push({ pathname: '/chat/info/[roomId]', params: { roomId: room._id } }),
+          },
+        ],
+      }
+    : null;
 
-  return (
-    <Modal visible={!!room} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
-      <Pressable className="flex-1 justify-end bg-black/40" onPress={onClose}>
-        <Pressable className="rounded-t-3xl bg-surface px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }} onPress={() => undefined}>
-          <View className="mb-1 items-center py-1">
-            <View className="h-1 w-10 rounded-full bg-border" />
-          </View>
-          {room ? (
-            <Text className="px-4 pb-2 pt-1 text-base font-bold text-foreground" numberOfLines={1}>
-              {roomTitle(room)}
-            </Text>
-          ) : null}
-          {items.map((it) => (
-            <Pressable
-              key={it.label}
-              onPress={it.onPress}
-              className="flex-row items-center gap-3.5 rounded-xl px-4 py-3.5 active:bg-surface-muted">
-              <Ionicons name={it.icon} size={22} color={foreground} />
-              <Text className="text-base text-foreground">{it.label}</Text>
-            </Pressable>
-          ))}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
+  return <ActionSheet options={options} onClose={onClose} />;
 }
 
 const RoomRow = memo(function RoomRow({
@@ -352,33 +337,48 @@ const RoomRow = memo(function RoomRow({
       delayLongPress={350}
       android_ripple={{ color: 'rgba(127,127,127,0.12)' }}
       style={({ pressed }) => ({ height: ROW_HEIGHT, opacity: pressed ? 0.85 : 1 })}
-      className="flex-row items-center gap-3.5 px-4">
-      <RoomAvatar room={room} token={token} size={56} brand={colors.brand} success={colors.success} />
-      <View className="flex-1 justify-center gap-0.5">
+      className="flex-row items-center gap-3 px-4">
+      <RoomAvatar room={room} token={token} size={54} brand={colors.brand} success={colors.success} />
+      {/* Gạch mảnh thụt vào qua khỏi avatar: dày đặc thế này mà không có gạch thì các dòng dính vào nhau */}
+      {/* Chiều cao khai bằng SỐ, đừng dùng `h-full`: trong FlashList, chiều cao 100% có lúc tính ra 0
+          (lượt đo đầu chưa biết chiều cao cha) → cả dòng tàng hình, chỉ còn khoảng trống bấm được. */}
+      <View style={{ height: ROW_HEIGHT }} className="flex-1 justify-center gap-[3px] border-b border-border">
+        {/* Hàng trên: tên — (tắt báo) — giờ. Giờ nằm đây chứ không chen giữa dòng xem trước
+            như trước, nhờ vậy chữ xem trước được dùng trọn hàng dưới thay vì bị cắt sớm. */}
         <View className="flex-row items-center gap-1.5">
           {room.is_pinned ? <Ionicons name="pin" size={12} color={colors.muted} /> : null}
-          <Text className={`flex-1 text-[16px] text-foreground ${bold ? 'font-bold' : 'font-medium'}`} numberOfLines={1}>
+          <Text className={`flex-1 text-[15.5px] text-foreground ${bold ? 'font-bold' : 'font-medium'}`} numberOfLines={1}>
             <Highlighted text={roomTitle(room)} words={highlight} />
           </Text>
           {room.notifications_muted ? <Ionicons name="notifications-off" size={13} color={colors.muted} /> : null}
+          {room.last_message_at ? (
+            <Text className={`text-[12px] ${bold ? 'font-bold text-foreground' : 'text-muted'}`}>
+              {roomTime(room.last_message_at)}
+            </Text>
+          ) : null}
         </View>
         <View className="flex-row items-center gap-1.5">
-          <Text className={`shrink text-[14px] ${bold ? 'font-semibold text-foreground' : 'text-muted'}`} numberOfLines={1}>
+          {/* `shrink` + ô đệm `flex-1` chứ KHÔNG phải `flex-1` thẳng trên Text: trên Android,
+              Text một dòng đặt flex-1 vẫn chiếm đúng bề rộng chữ gốc, đẩy huy hiệu ra khỏi mép. */}
+          <Text className={`shrink text-[13.5px] ${bold ? 'font-semibold text-foreground' : 'text-muted'}`} numberOfLines={1}>
             {preview}
-          </Text>
-          <Text className={`text-[13px] ${bold ? 'font-semibold text-foreground' : 'text-muted'}`}>
-            {room.last_message_at ? ` · ${roomTime(room.last_message_at)}` : ''}
           </Text>
           <View className="flex-1" />
           {room.has_unread_mention ? (
-            <View className="h-5 w-5 items-center justify-center rounded-full bg-brand">
+            <View className="h-[19px] w-[19px] items-center justify-center rounded-full bg-brand">
               <Text className="text-[11px] font-bold text-on-brand">@</Text>
             </View>
           ) : null}
           {unread ? (
+            // Phòng tắt thông báo: viên xám nhạt có viền, số màu xám đậm. Trước là chữ TRẮNG trên
+            // nền xám — đúng ý "làm mờ đi" nhưng tương phản yếu ở cả sáng lẫn tối, số bị nhoè.
             <View
-              className={`h-5 min-w-5 items-center justify-center rounded-full px-1.5 ${room.notifications_muted ? 'bg-muted' : 'bg-brand'}`}>
-              <Text className="text-[11px] font-bold text-on-brand">{unread > 99 ? '99+' : unread}</Text>
+              className={`h-[19px] min-w-[19px] items-center justify-center rounded-full px-1.5 ${
+                room.notifications_muted ? 'border border-border bg-surface-muted' : 'bg-brand'
+              }`}>
+              <Text className={`text-[10.5px] font-bold ${room.notifications_muted ? 'text-muted' : 'text-on-brand'}`}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -393,7 +393,7 @@ function SkeletonList() {
     <View>
       {Array.from({ length: 8 }, (_, i) => (
         <View key={i} className="flex-row items-center gap-3 px-4" style={{ height: ROW_HEIGHT }}>
-          <View className="h-14 w-14 rounded-full bg-surface-muted" />
+          <View className="h-[54px] w-[54px] rounded-full bg-surface-muted" />
           <View className="flex-1 gap-2">
             <View className="h-3.5 w-1/2 rounded bg-surface-muted" />
             <View className="h-3 w-4/5 rounded bg-surface-muted" />
@@ -444,7 +444,9 @@ function Highlighted({ text, words }: { text: string; words: string[] }) {
 function OnlineStrip({ rooms, token }: { rooms: ChatRoomItem[]; token?: string }) {
   const success = useThemeColor('success');
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 px-4 pb-3 pt-1">
+    <View className="mb-1 border-b border-border pb-1">
+      <Text className="px-4 pb-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-muted">Đang hoạt động</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 px-4 pb-2">
       {rooms.map((r) => {
         const p = r.direct_recipient!;
         return (
@@ -465,6 +467,7 @@ function OnlineStrip({ rooms, token }: { rooms: ChatRoomItem[]; token?: string }
           </Pressable>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

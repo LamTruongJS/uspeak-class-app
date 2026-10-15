@@ -163,8 +163,8 @@ function MessageItemBase({
     : { borderRadius: R, borderTopLeftRadius: firstOfCluster ? R : r, borderBottomLeftRadius: lastOfCluster ? R : r };
   const time = m.pending ? 'Đang gửi…' : formatTime(created);
   const hasReactions = !!m.reactions?.length;
-  // Giờ gửi chỉ ở tin cuối cụm, nằm gọn trong góc bong bóng (đỡ một dòng riêng dưới mỗi cụm)
-  const showMeta = lastOfCluster && !m.failed;
+  // Giờ gửi ở MỌI tin, nằm gọn trong góc cuối bong bóng (yêu cầu 15/10/2026 — trước chỉ tin cuối cụm)
+  const showMeta = !m.failed;
 
   return (
     <View className={`${firstOfCluster ? 'pt-4' : 'pt-[5px]'} ${highlighted ? 'rounded-xl bg-brand-soft' : ''}`}>
@@ -321,10 +321,13 @@ function BubbleBody({
   const metaRow = reserveMeta ? <View className="h-3" /> : null;
   switch (m.message_type) {
     case 'file':
+      // Dòng "128 KB · Bấm để mở" ngắn, góc phải còn trống → giờ gửi nằm luôn trên dòng đó, không
+      // chừa thêm 1 dòng (bong bóng tệp cao lênh khênh). Lúc đang gửi chữ dài ("Đang tải lên… 45%")
+      // thì vẫn chừa dòng riêng.
       return (
         <>
           <FileContent message={m} mine={mine} onCancelUpload={onCancelUpload} />
-          {metaRow}
+          {m.pending ? metaRow : null}
         </>
       );
     case 'voice':

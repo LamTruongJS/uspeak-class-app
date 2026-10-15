@@ -6,6 +6,7 @@ import { Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 
 import { Segmented } from '@/components/ui/segmented';
 import { LoadingView, StateView } from '@/components/ui/state-view';
+import { avatarColor } from '@/features/chat/room-avatar';
 import { useWikiCategories, useWikiList, WIKI_SPACE_META, type WikiDocListItem, type WikiSpace } from '@/features/wiki/api';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
@@ -38,16 +39,16 @@ export default function WikiListScreen() {
 
   const header = (
     <View className="gap-3 pb-1">
-      <Text className="text-[13px] text-muted">{meta.subtitle}</Text>
-      <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3">
-        <Ionicons name="search" size={18} color={muted} />
+      <Text className="px-1 text-[13px] text-muted">{meta.subtitle}</Text>
+      <View className="h-11 flex-row items-center gap-2 rounded-full bg-surface-muted px-4">
+        <Ionicons name="search" size={17} color={muted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Tìm bài viết…"
           placeholderTextColor={muted}
           autoCorrect={false}
-          className="flex-1 text-base text-foreground"
+          className="flex-1 text-[15px] text-foreground"
         />
         {search ? (
           <Pressable hitSlop={8} onPress={() => setSearch('')}>
@@ -78,37 +79,37 @@ export default function WikiListScreen() {
           keyExtractor={(d: WikiDocListItem) => d._id}
           ListHeaderComponent={header}
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-          ItemSeparatorComponent={() => <View className="h-2" />}
+          ItemSeparatorComponent={() => <View className="h-2.5" />}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}
           ListEmptyComponent={<StateView icon="library-outline" title={q ? 'Không tìm thấy bài viết' : 'Chưa có bài viết nào'} />}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => router.push({ pathname: '/wiki/[id]', params: { id: item._id } })}
-              className="gap-1.5 rounded-2xl border border-border bg-surface p-3.5 active:bg-surface-muted">
-              <Text className="text-[15px] font-semibold leading-5 text-foreground" numberOfLines={2}>
-                {item.tieu_de}
-              </Text>
-              {item.tom_tat ? (
-                <Text className="text-[13px] leading-5 text-muted" numberOfLines={2}>
-                  {item.tom_tat}
-                </Text>
-              ) : null}
-              <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
-                {item.category_id?.ten ? (
-                  <View className="rounded-full bg-brand-soft px-2 py-0.5">
-                    <Text className="text-[11px] font-semibold text-brand">{item.category_id.ten}</Text>
-                  </View>
-                ) : null}
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="eye-outline" size={12} color={muted} />
-                  <Text className="text-[11px] text-muted">{item.luot_xem ?? 0}</Text>
+          renderItem={({ item }) => {
+            const color = avatarColor(item.category_id?._id ?? item._id);
+            return (
+              <Pressable
+                onPress={() => router.push({ pathname: '/wiki/[id]', params: { id: item._id } })}
+                className="flex-row gap-3 rounded-3xl bg-surface p-3.5 active:opacity-90">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${color}1f` }}>
+                  <Ionicons name={space === 'guide' ? 'book' : 'document-text'} size={22} color={color} />
                 </View>
-                <Text className="text-[11px] text-muted">{formatDate(item.updated_at || item.created_at)}</Text>
-              </View>
-            </Pressable>
-          )}
+                <View className="flex-1 gap-1">
+                  <Text className="text-[15px] font-bold leading-5 text-foreground" numberOfLines={2}>
+                    {item.tieu_de}
+                  </Text>
+                  {item.tom_tat ? (
+                    <Text className="text-[13px] leading-5 text-muted" numberOfLines={2}>
+                      {item.tom_tat}
+                    </Text>
+                  ) : null}
+                  <Text className="text-[12px] text-muted" numberOfLines={1}>
+                    {[item.category_id?.ten, `${item.luot_xem ?? 0} lượt xem`, formatDate(item.updated_at || item.created_at)].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#9ca3af" style={{ alignSelf: 'center' }} />
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
