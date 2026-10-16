@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/format';
 import { resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 import {
   DOCUMENT_VIEWS,
@@ -28,7 +29,8 @@ import {
  * Màn kho tài liệu — dùng chung cho `/documents` (gốc) và `/documents/[id]` (bên trong 1 thư mục).
  * Ở thư mục con thì khoá vào view "kho" và ẩn thanh chọn view cho khỏi rối.
  */
-export function DriveScreen({ parentId, title }: { parentId?: string; title?: string }) {
+/** `menu`: màn gốc /tài-liệu mở từ menu tổng → header là ☰; thư mục con vẫn là nút back. */
+export function DriveScreen({ parentId, title, menu }: { parentId?: string; title?: string; menu?: boolean }) {
   const [view, setView] = useState<DocumentView>('kho');
   const [search, setSearch] = useState('');
   const [viewerUri, setViewerUri] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export function DriveScreen({ parentId, title }: { parentId?: string; title?: st
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: title || list.data?.folder?.ten || 'Tài liệu' }} />
+      <Stack.Screen options={{ title: title || list.data?.folder?.ten || 'Tài liệu', ...(menu ? menuScreenOptions : null) }} />
       {list.isLoading ? (
         <LoadingView />
       ) : list.isError ? (

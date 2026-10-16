@@ -107,9 +107,10 @@ export function useStaffClasses(enabled = true) {
 }
 
 /** Chi tiết lớp cho giáo viên: thống kê + học viên kèm tiến độ (GET /classes/:id/detail). */
-export function useStaffClassDetail(classId: string) {
+export function useStaffClassDetail(classId: string, enabled = true) {
   return useQuery({
     queryKey: ['classes', 'staff', 'detail', classId],
+    enabled: enabled && !!classId,
     queryFn: async () =>
       (
         await api.get<{ stats: ClassDetailStats; students: ClassStudentStats[]; groups?: ClassGroup[] }>(`/classes/${classId}/detail`, {

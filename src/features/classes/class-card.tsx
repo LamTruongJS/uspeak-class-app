@@ -9,6 +9,7 @@ import { avatarColor } from '@/features/chat/room-avatar';
 import { mediaCacheKey, resolveMediaUrl } from '@/lib/media';
 
 import type { StudentClassItem } from './api';
+import type { TeachingGroupItem } from './teach-api';
 import { COURSE_TYPE_LABEL, STATUS_META, type StaffClassItem } from './staff-api';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -251,3 +252,82 @@ export const StaffClassCard = memo(function StaffClassCard({
   );
 });
 
+
+/** "TYV95 - 20h30 T357 - 020426" (tên nội bộ CRM) → "T357 · 20h30"; tên đặt riêng thì không có lịch. */
+function scheduleFromClassName(name: string, code: string) {
+  const parts = name.split(' - ').map((p) => p.trim());
+  if (parts[0] !== code || !parts[1]) return null;
+  const m = parts[1].match(/(\d{1,2}h\d{2})\s+(T[\dCN]+)/);
+  return m ? `${m[2]} · ${m[1]}` : null;
+}
+
+/**
+ * Thẻ nhóm giảng dạy — CÙNG kiểu với thẻ lớp (StaffClassCard): ảnh bìa theo lớp (các nhóm cùng lớp
+ * cùng màu), chip trạng thái, tên nhóm, trợ giảng, giáo viên, lịch, sĩ số dạng thanh.
+ */
+export const TeachingGroupCard = memo(function TeachingGroupCard({
+  item,
+  token,
+  muted,
+  onPress,
+}: {
+  item: TeachingGroupItem;
+  token?: string;
+  muted: string;
+  onPress?: () => void;
+}) {
+  const status = STATUS_META[item.status_class] ?? STATUS_META.ENDED;
+  const fmt = (iso?: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const dates = [fmt(item.start_date), fmt(item.end_date)].filter(Boolean).join(' → ');
+  const statusTone = status.tone === 'success' ? 'success' : status.tone === 'neutral' ? 'dark' : 'light';
+  const count = item.student_ids?.length ?? 0;
+  const max = item.max_students && item.max_students < 10000 ? item.max_students : null;
+  const fill = max ? Math.round((count / max) * 100) : 0;
+  const schedule = scheduleFromClassName(item.class_name, item.class_code);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="overflow-hidden rounded-2xl border border-border bg-surface active:opacity-90">
+      <Cover id={item.class_id || item._id} code={item.class_code} image={item.cover_image} token={token}>
+        <Pill label={status.label} tone={statusTone} />
+        {item.course_type ? <Pill label={COURSE_TYPE_LABEL[item.course_type] ?? item.course_type} tone="dark" /> : null}
+      </Cover>
+
+      <View className="gap-2.5 p-4">
+        <View className="gap-0.5">
+          <Text className="text-[17px] font-bold leading-6 text-foreground" numberOfLines={2}>
+            {item.group_name}
+          </Text>
+          <Text className="text-xs font-semibold text-muted">{item.class_code}</Text>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Avatar name={item.assistant?.name || '?'} uri={resolveMediaUrl(item.assistant?.avatar, token)} size={22} />
+          <Text className="flex-1 text-[13px] text-muted" numberOfLines={1}>
+            TG <Text className="font-semibold text-foreground">{item.assistant?.name || 'Chưa có trợ giảng'}</Text>
+            {item.teacher?.name ? <Text className="text-muted"> · GV {item.teacher.name}</Text> : null}
+          </Text>
+        </View>
+        {schedule ? <Meta icon="time-outline" color={muted} text={schedule} /> : null}
+        {dates ? <Meta icon="calendar-outline" color={muted} text={dates} /> : null}
+
+        <View className="gap-1.5 pt-0.5">
+          <View className="flex-row justify-between">
+            <Text className="text-[13px] text-muted">
+              Học viên <Text className="font-semibold text-foreground">{count}</Text>
+              {max ? <Text className="text-muted">/{max}</Text> : null}
+            </Text>
+            {max ? <Text className={`text-[13px] font-bold ${fill >= 90 ? 'text-warning' : 'text-info'}`}>{fill}%</Text> : null}
+          </View>
+          {max ? (
+            <View className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
+              <View className={`h-full rounded-full ${fill >= 90 ? 'bg-warning' : 'bg-info'}`} style={{ width: `${Math.min(100, fill)}%` }} />
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+});

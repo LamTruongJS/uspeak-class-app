@@ -4,6 +4,8 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
+import { MenuButton } from '@/features/navigation/app-menu';
+import { NotificationBellButton } from '@/features/notifications/bell-button';
 import { dashboardHeaderBackground } from '@/constants/dashboard-backgrounds';
 import type { User } from '@/features/auth/types';
 import { mediaCacheKey, useMediaUrl } from '@/lib/media';
@@ -48,11 +50,16 @@ export function DashboardHeader({
       />
       <View className="absolute inset-0 bg-black/20" />
 
-      <View className="absolute left-4 top-4 flex-row items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3 py-1.5">
-        <Ionicons name={icon} size={12} color="#ffffff" />
-        <Text className="text-[10px] font-extrabold uppercase tracking-wider text-white" style={HERO_TEXT_SHADOW}>
-          {eyebrow}
-        </Text>
+      <View className="absolute left-4 right-4 top-4 flex-row items-center gap-2">
+        <MenuButton onImage />
+        <View className="shrink flex-row items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3 py-1.5">
+          <Ionicons name={icon} size={12} color="#ffffff" />
+          <Text className="text-[10px] font-extrabold uppercase tracking-wider text-white" style={HERO_TEXT_SHADOW} numberOfLines={1}>
+            {eyebrow}
+          </Text>
+        </View>
+        <View className="flex-1" />
+        <NotificationBellButton onImage />
       </View>
 
       <View className="absolute bottom-4 left-4 right-4">

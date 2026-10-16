@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/ui/toast';
 import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
+import { FilterChips as Chips, SearchBox } from '@/components/ui/list-filters';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { SUPPORT_HOTLINE } from '@/constants/support';
 import { useMyPermissionCodes } from '@/features/chat/api';
@@ -19,6 +20,7 @@ import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { isStaffRole } from '@/navigation/features';
 import { useAuthStore } from '@/stores/auth.store';
+import { MenuButton } from '@/features/navigation/app-menu';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 export default function ClassesScreen() {
@@ -30,83 +32,24 @@ export default function ClassesScreen() {
 
 function Header({
   title,
-  subtitle,
   right,
   children,
 }: {
   title: string;
-  subtitle?: string;
   right?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <View className="gap-3 px-4 pb-1" style={{ paddingTop: insets.top + 12 }}>
-      <View className="flex-row items-end gap-3">
-        <View className="flex-1">
-          <Text className="text-[28px] font-bold text-foreground">{title}</Text>
-          {subtitle ? <Text className="text-sm text-muted">{subtitle}</Text> : null}
-        </View>
+      <View className="flex-row items-center gap-3">
+        <MenuButton />
+        <Text className="flex-1 text-[28px] font-extrabold tracking-tight text-foreground" numberOfLines={1}>
+          {title}
+        </Text>
         {right}
       </View>
       {children}
-    </View>
-  );
-}
-
-function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  const muted = useThemeColor('muted');
-  return (
-    <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3">
-      <Ionicons name="search" size={18} color={muted} />
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={muted}
-        autoCorrect={false}
-        className="flex-1 text-base text-foreground"
-      />
-      {value ? (
-        <Pressable hitSlop={8} onPress={() => onChange('')} accessibilityLabel="Xoá ô tìm">
-          <Ionicons name="close-circle" size={18} color={muted} />
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-function Chips<T extends string>({
-  items,
-  value,
-  onChange,
-}: {
-  items: { value: T; label: string; count?: number }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  // XUỐNG DÒNG chứ không cuộn ngang: cuộn thì mấy bộ lọc cuối luôn khuất ngoài mép màn hình,
-  // người dùng không biết là còn nữa.
-  return (
-    <View className="flex-row flex-wrap gap-2">
-      {items.map((it) => {
-        const on = it.value === value;
-        return (
-          <Pressable
-            key={it.value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
-            onPress={() => onChange(it.value)}
-            className={`h-8 flex-row items-center gap-1.5 rounded-full px-3 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
-            <Text className={`text-[13px] font-semibold ${on ? 'text-on-brand' : 'text-foreground'}`}>{it.label}</Text>
-            {it.count !== undefined ? (
-              <View className={`rounded-full px-1.5 ${on ? 'bg-white/25' : 'bg-background'}`}>
-                <Text className={`text-[11px] font-bold ${on ? 'text-on-brand' : 'text-muted'}`}>{it.count}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -149,7 +92,7 @@ function StudentClasses() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Lớp học của tôi" subtitle="Các lớp bạn đang tham gia">
+      <Header title="Lớp học của tôi">
         {all.length > 3 ? <SearchBox value={search} onChange={setSearch} placeholder="Tìm lớp…" /> : null}
         <Chips<StudentFilter>
           value={filter}
@@ -246,7 +189,7 @@ function StaffClasses() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Lớp dạy" subtitle={effOwner === 'mine' ? 'Các lớp bạn phụ trách' : 'Toàn bộ lớp trên hệ thống'}>
+      <Header title="Lớp dạy">
         <SearchBox value={search} onChange={setSearch} placeholder="Tìm lớp, mã lớp, giáo viên…" />
         {/*
           Lọc theo NGƯỜI PHỤ TRÁCH là một chip bật/tắt, không phải 2 nút chiếm cả hàng nữa.

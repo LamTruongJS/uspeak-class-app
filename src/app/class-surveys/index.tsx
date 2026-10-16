@@ -11,6 +11,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Phiếu khảo sát của học viên — bản mobile của tab "Phiếu khảo sát" trong chi tiết lớp (web).
@@ -45,7 +46,7 @@ export default function ClassSurveysScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Phiếu khảo sát' }} />
+      <Stack.Screen options={{ title: 'Phiếu khảo sát', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

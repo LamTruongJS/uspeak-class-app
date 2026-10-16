@@ -14,6 +14,7 @@ import { gradingApi } from '@/features/assignments/grading-api';
 import { useMyPermissionCodes } from '@/features/chat/api';
 import { SUBMISSION_FILTERS, useClassSubmissionList, useSubmissionAdmin, type ClassSubmissionItem } from '@/features/classes/class-admin-api';
 import { useStaffClasses } from '@/features/classes/staff-api';
+import { useGroupScope } from '@/features/classes/teach-api';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
 import { resolveMediaUrl, useMediaToken } from '@/lib/media';
@@ -24,9 +25,12 @@ import { useThemeColor } from '@/theme/use-theme-color';
  * Bài nộp của lớp (gộp 2 tab web "Danh sách bài nộp" + "Review bài nhận xét"): lọc trạng thái / bài tập,
  * tìm học viên. Bấm 1 bài: chờ nhận xét → nhận bài & chấm; chờ review → màn review; đã xong → kết quả.
  * Ở bộ lọc "Chờ review" có chọn nhiều → Duyệt nhanh (POST /assignments/submissions/review/bulk).
+ * `?group=<id>` (mở từ trang nhóm): chỉ bài của học viên trong nhóm (`student_ids`).
  */
 export default function ClassSubmissionsScreen() {
-  const { id, status: initialStatus } = useLocalSearchParams<{ id: string; status?: string }>();
+  const { id, status: initialStatus, group } = useLocalSearchParams<{ id: string; status?: string; group?: string }>();
+  const scope = useGroupScope(group);
+  const groupIds = useMemo(() => (scope.ids ? [...scope.ids] : undefined), [scope.ids]);
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
   const { data: token } = useMediaToken();
@@ -42,7 +46,8 @@ export default function ClassSubmissionsScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [opening, setOpening] = useState<string | null>(null);
 
-  const list = useClassSubmissionList(id, { status, search: q, assignmentId });
+  // Nhóm chưa có học viên nào → không gọi API (student_ids rỗng = BE trả cả lớp)
+  const list = useClassSubmissionList(id, { status, search: q, assignmentId }, groupIds, !scope.pending && !(groupIds && !groupIds.length));
   const assignments = useClassAssignments(id, true);
   const admin = useSubmissionAdmin();
   const pull = usePullRefresh(() => list.refetch());
@@ -112,7 +117,12 @@ export default function ClassSubmissionsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: cls?.class_code ? `Bài nộp · ${cls.class_code}` : 'Bài nộp', headerShown: true }} />
+      <Stack.Screen
+        options={{
+          title: scope.active ? (scope.name ? `Bài nộp · ${scope.name}` : 'Bài nộp nhóm') : cls?.class_code ? `Bài nộp · ${cls.class_code}` : 'Bài nộp',
+          headerShown: true,
+        }}
+      />
       <FlatList
         data={items}
         keyExtractor={(s) => s._id}

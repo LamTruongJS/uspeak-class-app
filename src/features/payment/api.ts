@@ -132,3 +132,58 @@ export function useMyGradedSubmissions(enabled: boolean) {
       ).data,
   });
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+//  Cài đặt thanh toán (admin) — đơn giá nhận xét từng người
+//  Bản mobile của trang /payment-settings bên web.
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface GraderRateItem {
+  grader_id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role_code?: string;
+  role_label?: string;
+  grading_roles?: string[];
+  is_secondary_grader?: boolean;
+  rate: number;
+  /** true = có đơn giá riêng, false = đang ăn đơn giá mặc định */
+  is_custom: boolean;
+  note?: string;
+  updated_at?: string | null;
+}
+
+export const graderRateKeys = {
+  list: (search?: string) => ['payment-settings', 'grader-rates', search ?? ''] as const,
+};
+
+export function useGraderRates(search?: string) {
+  return useQuery({
+    queryKey: graderRateKeys.list(search),
+    queryFn: async () =>
+      (
+        await api.get<{ data: GraderRateItem[]; default_rate: number }>('/payment-settings/grader-rates', {
+          params: search ? { search } : undefined,
+        })
+      ).data,
+  });
+}
+
+/** `rate = null` → bỏ đơn giá riêng, người đó quay về ăn đơn giá mặc định. */
+export function useSetGraderRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { grader_ids: string[]; rate: number | null; note?: string }) =>
+      api.patch('/payment-settings/grader-rates', input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payment-settings', 'grader-rates'] }),
+  });
+}
+
+export function useSetDefaultGraderRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rate: number) => api.patch('/payment-settings/grader-rates/default', { rate }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payment-settings', 'grader-rates'] }),
+  });
+}

@@ -11,6 +11,7 @@ import { fold } from '@/features/chat/mentions';
 import { useStaffClassDetail, useStaffClasses, useStudentAdmin, type ClassStudentStats } from '@/features/classes/staff-api';
 import { useActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { StudentRow } from '@/features/classes/student-row';
+import { useTeachingGroupDetail } from '@/features/classes/teach-api';
 import { getErrorMessage } from '@/lib/api/client';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
@@ -26,14 +27,19 @@ const SORTS: { value: Sort; label: string }[] = [
 /**
  * Học viên của lớp (nhân sự): tìm, sắp xếp, nhắn riêng; nút ⋯ (theo quyền, như menu của web) để khoá /
  * mở khoá tài khoản (STUDENT_BLOCK) và bảo lưu học viên (STUDENT_DEFERRAL_CREATE).
+ *
+ * `?group=<id>` → chỉ học viên của NHÓM giảng dạy đó (mở từ trang nhóm) — cùng một màn để danh sách
+ * học viên của lớp và của nhóm y hệt nhau.
  */
 export default function ClassStudentsScreen() {
-  const { id, sort: initialSort } = useLocalSearchParams<{ id: string; sort?: Sort }>();
+  const { id, sort: initialSort, group } = useLocalSearchParams<{ id: string; sort?: Sort; group?: string }>();
   const brand = useThemeColor('brand');
 
   const classes = useStaffClasses();
   const cls = classes.data?.find((c) => c._id === id);
-  const detail = useStaffClassDetail(id);
+  const classDetail = useStaffClassDetail(id, !group);
+  const groupDetail = useTeachingGroupDetail(group ?? '');
+  const detail = group ? groupDetail : classDetail;
   const rooms = useChatRooms();
   const perms = useMyPermissionCodes().data ?? [];
   const canBlock = perms.includes('STUDENT_BLOCK');
@@ -84,7 +90,10 @@ export default function ClassStudentsScreen() {
         admin.block.mutate(
           { userId: st._id, active: blocked },
           {
-            onSuccess: () => showToast('success', blocked ? 'Đã mở khoá tài khoản' : 'Đã khoá tài khoản'),
+            onSuccess: () => {
+              showToast('success', blocked ? 'Đã mở khoá tài khoản' : 'Đã khoá tài khoản');
+              if (group) void groupDetail.refetch();
+            },
             onError: (e) => showToast('error', 'Không thực hiện được', getErrorMessage(e)),
           },
         ),
@@ -108,7 +117,18 @@ export default function ClassStudentsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: cls?.class_code ? `Học viên · ${cls.class_code}` : 'Học viên', headerShown: true }} />
+      <Stack.Screen
+        options={{
+          title: group
+            ? groupDetail.data?.group_name
+              ? `Học viên · ${groupDetail.data.group_name}`
+              : 'Học viên nhóm'
+            : cls?.class_code
+              ? `Học viên · ${cls.class_code}`
+              : 'Học viên',
+          headerShown: true,
+        }}
+      />
       <FlatList
         data={students}
         keyExtractor={(s) => s._id}
@@ -132,7 +152,7 @@ export default function ClassStudentsScreen() {
           ) : detail.isError ? (
             <StateView icon="cloud-offline-outline" title="Không tải được danh sách" actionLabel="Thử lại" onAction={() => detail.refetch()} />
           ) : (
-            <StateView icon="people-outline" title={search ? 'Không tìm thấy học viên' : 'Lớp chưa có học viên'} />
+            <StateView icon="people-outline" title={search ? 'Không tìm thấy học viên' : group ? 'Nhóm chưa có học viên' : 'Lớp chưa có học viên'} />
           )
         }
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 28, flexGrow: 1 }}

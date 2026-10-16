@@ -136,6 +136,7 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
       <Pressable onPress={() => setViewer(0)}>
         <Image
           source={{ uri: tileUri(img, w), cacheKey: thumbCacheKey(img.thumbnail_url || img.file_url, w * 2) }}
+          recyclingKey={`${message._id}-0`}
           style={{ width: w, height: h, borderRadius: 14, backgroundColor: ph }}
           contentFit="cover"
           transition={120}
@@ -151,6 +152,7 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
           <Pressable key={i} onPress={() => setViewer(i)}>
             <Image
               source={{ uri: tileUri(img, cell), cacheKey: thumbCacheKey(img.thumbnail_url || img.file_url, cell * 2) }}
+              recyclingKey={`${message._id}-${i}`}
               style={{ width: cell, height: cell, borderRadius: 8, backgroundColor: ph }}
               contentFit="cover"
               transition={120}
@@ -170,7 +172,8 @@ export function ImageAlbum({ message, onCancelUpload }: { message: ChatMessage; 
     <>
       {content}
       {message.pending ? <UploadOverlay percent={message.upload_progress ?? 0} onCancel={onCancelUpload} /> : null}
-      <AlbumViewer uris={fullUris} index={viewer} onClose={() => setViewer(null)} />
+      {/* Chỉ dựng trình xem khi mở — mỗi bong bóng ảnh gắn sẵn (dù đóng) là thêm vài hook cho mỗi ô của danh sách */}
+      {viewer !== null ? <AlbumViewer uris={fullUris} index={viewer} onClose={() => setViewer(null)} /> : null}
     </>
   );
 }
@@ -258,7 +261,7 @@ export function StickerContent({ message }: { message: ChatMessage }) {
       </View>
     );
   }
-  return <Image source={{ uri }} style={{ width: 140, height: 140 }} contentFit="contain" autoplay />;
+  return <Image source={{ uri }} recyclingKey={message._id} style={{ width: 140, height: 140 }} contentFit="contain" autoplay />;
 }
 
 // ─── Tệp / video / thoại ────────────────────────────────────────────────────
@@ -425,7 +428,7 @@ export function VideoContent({ message, onCancelUpload }: { message: ChatMessage
         onPress={() => !message.pending && uri && setOpen(true)}
         className="overflow-hidden rounded-2xl bg-black"
         style={{ width: w, height: h }}>
-        {thumb ? <Image source={{ uri: thumb }} style={{ width: w, height: h }} contentFit="cover" /> : null}
+        {thumb ? <Image source={{ uri: thumb }} recyclingKey={message._id} style={{ width: w, height: h }} contentFit="cover" /> : null}
         {message.pending ? null : (
           <View className="absolute inset-0 items-center justify-center gap-2 px-3">
             <View className="h-14 w-14 items-center justify-center rounded-full bg-white/20">
@@ -636,7 +639,7 @@ export function LinkPreviewCard({ url, mine }: { url: string; mine: boolean }) {
       onPress={() => Linking.openURL(data.url || url)}
       className={`overflow-hidden rounded-xl active:opacity-80 ${mine ? 'bg-white/15' : 'bg-surface-muted'}`}
       style={{ width: w }}>
-      {data.image ? <Image source={{ uri: data.image }} style={{ width: w, height: w * 0.52 }} contentFit="cover" /> : null}
+      {data.image ? <Image source={{ uri: data.image }} recyclingKey={url} style={{ width: w, height: w * 0.52 }} contentFit="cover" /> : null}
       <View className="gap-0.5 p-2.5">
         {data.site ? (
           <Text className={`text-xs uppercase ${mine ? 'text-on-brand opacity-80' : 'text-muted'}`} numberOfLines={1}>

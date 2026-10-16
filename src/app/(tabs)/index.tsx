@@ -10,6 +10,8 @@ import { Screen } from '@/components/ui/screen';
 import { useGradingSummary } from '@/features/assignments/grading-api';
 import { useMyPermissionCodes } from '@/features/chat/api';
 import { DashboardHeader } from '@/features/dashboard/dashboard-header';
+import { AssistantDashboard } from '@/features/dashboard/assistant-dashboard';
+import { useRefreshAssistantDashboard } from '@/features/dashboard/assistant-api';
 import { StaffDashboard, type DashboardPeriod } from '@/features/dashboard/staff-dashboard';
 import { StudentDashboard, useStudentDashboardData } from '@/features/dashboard/student-dashboard';
 import { featuresForUser, isStaffRole, type AppFeature } from '@/navigation/features';
@@ -24,6 +26,8 @@ const DASHBOARD_ROLES = ['AD', 'TE', 'TA'];
 /**
  * Trang chủ = Dashboard như bên web class:
  * - Học viên: dashboard học tập (StudentDashboard)
+ * - Trợ giảng: trang chủ riêng về các nhóm mình hỗ trợ (AssistantDashboard) — không cần DASHBOARD_VIEW
+ *   vì chỉ là dữ liệu nhóm của chính họ, không phải số liệu toàn hệ thống
  * - Quản trị / giáo viên / trợ giảng có quyền DASHBOARD_VIEW: thống kê hệ thống (StaffDashboard)
  * - Vai trò khác (vd người nhận xét): lời chào + lối tắt
  */
@@ -34,6 +38,7 @@ export default function HomeScreen() {
   const canStaffDashboard = staff && DASHBOARD_ROLES.includes(role ?? '') && !!permissions.data?.includes('DASHBOARD_VIEW');
 
   if (!staff) return <StudentHome />;
+  if (role === 'TA') return <AssistantHome />;
   if (canStaffDashboard) return <StaffHome />;
   return <BasicHome />;
 }
@@ -44,6 +49,19 @@ function StudentHome() {
   return (
     <Screen onRefresh={pull.onRefresh} refreshing={pull.refreshing}>
       <StudentDashboard data={data} shortcuts={<Shortcuts />} />
+    </Screen>
+  );
+}
+
+function AssistantHome() {
+  const refresh = useRefreshAssistantDashboard();
+  const queryClient = useQueryClient();
+  const pull = usePullRefresh(async () => {
+    await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ['grading', 'summary'] })]);
+  });
+  return (
+    <Screen onRefresh={pull.onRefresh} refreshing={pull.refreshing}>
+      <AssistantDashboard shortcuts={<Shortcuts />} />
     </Screen>
   );
 }

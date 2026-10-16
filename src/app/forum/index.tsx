@@ -14,6 +14,7 @@ import { resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /** Diễn đàn — bảng tin chung hoặc theo lớp, bản mobile của web /forum. */
 export default function ForumScreen() {
@@ -52,7 +53,7 @@ export default function ForumScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Diễn đàn' }} />
+      <Stack.Screen options={{ title: 'Diễn đàn', ...menuScreenOptions }} />
       <FlashList
         key={classId}
         data={items}

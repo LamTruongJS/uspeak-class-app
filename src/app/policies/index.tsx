@@ -7,6 +7,7 @@ import { POLICIES, POLICY_LOOK, usePolicyStatus } from '@/features/policies/api'
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Điều khoản & chính sách — 7 văn bản của web (/terms-of-use, /privacy-policy…) đọc native trong app.
@@ -22,7 +23,7 @@ export default function PoliciesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Điều khoản & chính sách' }} />
+      <Stack.Screen options={{ title: 'Điều khoản & chính sách', ...menuScreenOptions }} />
       <ScrollView
         contentContainerClassName="gap-4 p-4 pb-10"
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}>

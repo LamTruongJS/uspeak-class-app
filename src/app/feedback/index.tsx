@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { htmlToPlain } from '@/components/ui/rich-text';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 const TYPE_LOOK: Record<string, { color: string }> = {
   BUG: { color: '#dc2626' },
@@ -68,7 +69,7 @@ export default function FeedbackListScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Góp ý / Báo lỗi' }} />
+      <Stack.Screen options={{ title: 'Góp ý / Báo lỗi', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

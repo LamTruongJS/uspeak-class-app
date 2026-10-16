@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
+import { MenuButton } from '@/features/navigation/app-menu';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 interface ScreenProps {
@@ -15,6 +16,8 @@ interface ScreenProps {
   refreshing?: boolean;
   /** false khi bên trong đã có FlatList riêng */
   scroll?: boolean;
+  /** Hiện nút ☰ mở menu tổng ở đầu tiêu đề (dùng cho các màn trong thanh tab) */
+  menu?: boolean;
 }
 
 /** Khung màn hình chuẩn: nền theo theme, chừa tai thỏ/thanh trạng thái, kéo-để-tải-lại. */
@@ -25,6 +28,7 @@ export function Screen({
   onRefresh,
   refreshing = false,
   scroll = true,
+  menu = false,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const brand = useThemeColor('brand');
@@ -32,9 +36,14 @@ export function Screen({
   const tabBarSpace = useTabBarSpace();
 
   const header = title ? (
-    <View className="gap-1 pb-4">
-      <Text className="text-[28px] font-bold text-foreground">{title}</Text>
-      {subtitle ? <Text className="text-base text-muted">{subtitle}</Text> : null}
+    <View className="flex-row items-center gap-3 pb-4">
+      {menu ? <MenuButton /> : null}
+      <View className="flex-1">
+        <Text className="text-[28px] font-extrabold tracking-tight text-foreground" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? <Text className="text-[13.5px] text-muted">{subtitle}</Text> : null}
+      </View>
     </View>
   ) : null;
 

@@ -143,7 +143,7 @@ function MessageItemBase({
               onLongPress(m);
             }}
             delayLongPress={300}>
-            <CardBody m={m} myId={myId} />
+            <CardBody key={m._id} m={m} myId={myId} />
           </Pressable>
           <Reactions m={m} myId={myId} mine={false} onToggle={(e) => onToggleReaction(m, e)} />
           <View className="flex-row items-center gap-1">
@@ -208,9 +208,9 @@ function MessageItemBase({
                   {m.message_type === 'sticker' ? (
                     <StickerContent message={m} />
                   ) : m.message_type === 'video' ? (
-                    <VideoContent message={m} onCancelUpload={() => onCancelUpload(m)} />
+                    <VideoContent key={m._id} message={m} onCancelUpload={() => onCancelUpload(m)} />
                   ) : (
-                    <ImageAlbum message={m} onCancelUpload={() => onCancelUpload(m)} />
+                    <ImageAlbum key={m._id} message={m} onCancelUpload={() => onCancelUpload(m)} />
                   )}
                   {showMeta && m.message_type !== 'sticker' ? (
                     <View className="absolute bottom-1.5 right-1.5 flex-row items-center gap-1 rounded-full bg-black/45 px-2 py-0.5">
@@ -269,6 +269,11 @@ function MessageItemBase({
   );
 }
 
+/**
+ * Danh sách tin là FlashList (tái sử dụng ô): 1 ô vừa vẽ tin A có thể được đem đi vẽ tin B. Phần nào giữ
+ * state riêng (album đang mở, tin thoại đang phát, video, thẻ bình chọn / thông báo…) phải có
+ * `key={m._id}` để React dựng lại khi đổi tin — không thì tin B hiện trạng thái của tin A.
+ */
 export const MessageItem = memo(MessageItemBase);
 
 // Emoji (kể cả có tông da / ghép ZWJ / biến thể FE0F); khoảng trắng được bỏ qua.
@@ -333,7 +338,7 @@ function BubbleBody({
     case 'voice':
       return (
         <>
-          <VoiceContent message={m} mine={mine} />
+          <VoiceContent key={m._id} message={m} mine={mine} />
           {metaRow}
         </>
       );

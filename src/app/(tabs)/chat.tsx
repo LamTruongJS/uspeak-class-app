@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionSheet, type SheetOptions } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
+import { MenuButton } from '@/features/navigation/app-menu';
 import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
 import { showToast } from '@/components/ui/toast';
 import { StateView } from '@/components/ui/state-view';
@@ -144,8 +145,11 @@ export default function ChatRoomsScreen() {
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top + 8 }}>
       {/* ── Đầu trang: tiêu đề + soạn tin, ô tìm, bộ lọc — cố định, không cuộn theo danh sách ── */}
       <View className="px-4">
-        <View className="flex-row items-center justify-between pb-2.5">
-          <Text className="text-[27px] font-extrabold tracking-tight text-foreground">Đoạn chat</Text>
+        <View className="flex-row items-center gap-3 pb-2.5">
+          <MenuButton />
+          <Text className="flex-1 text-[28px] font-extrabold tracking-tight text-foreground" numberOfLines={1}>
+            Đoạn chat
+          </Text>
           <Pressable
             onPress={() => router.push('/chat/new')}
             hitSlop={8}

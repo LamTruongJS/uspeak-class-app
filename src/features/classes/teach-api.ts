@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
@@ -79,12 +80,15 @@ export interface TeachingGroupDetail {
   group_id: string;
   group_name: string;
   max_students: number;
-  assistant: { _id: string; name: string; email?: string };
+  assistant: { _id: string; name: string; email?: string; avatar?: string } | null;
   class_id: string;
   class_name: string;
   class_code: string;
   status_class: ClassStatus;
-  teacher: { _id: string; name: string } | null;
+  course_type?: 'zoom' | 'elearning' | 'combo';
+  start_date?: string;
+  end_date?: string | null;
+  teacher: { _id: string; name: string; avatar?: string } | null;
   stats: ClassDetailStats;
   students: ClassStudentStats[];
 }
@@ -104,6 +108,24 @@ export function useTeachingGroupDetail(groupId: string) {
     staleTime: 60_000,
     queryFn: async () => (await api.get<TeachingGroupDetail>(`/classes/teaching-groups/${groupId}/detail`)).data,
   });
+}
+
+/**
+ * Phạm vi NHÓM cho các màn của lớp (Điểm danh, Bài nộp, Bảng điểm, Báo cáo, Học viên) khi mở từ trang
+ * nhóm giảng dạy với `?group=<groupId>`: `ids` = học viên của nhóm (null = không lọc, xem cả lớp).
+ */
+export function useGroupScope(groupId?: string) {
+  const detail = useTeachingGroupDetail(groupId ?? '');
+  const students = detail.data?.students;
+  const ids = useMemo(() => (groupId && students ? new Set(students.map((s) => s._id)) : null), [groupId, students]);
+  return {
+    active: !!groupId,
+    /** Đang ở chế độ nhóm nhưng chưa tải xong danh sách học viên nhóm */
+    pending: !!groupId && !students,
+    ids,
+    name: detail.data?.group_name,
+    detail,
+  };
 }
 
 // ─── Bảng điểm ──────────────────────────────────────────────────────────────

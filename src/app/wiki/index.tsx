@@ -12,6 +12,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Danh sách bài Wiki / Hướng dẫn sử dụng. Cùng một màn, khác nhau ở `?space=wiki|guide`
@@ -62,7 +63,7 @@ export default function WikiListScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: meta.title }} />
+      <Stack.Screen options={{ title: meta.title, ...menuScreenOptions }} />
       {list.isLoading ? (
         <LoadingView />
       ) : list.isError ? (

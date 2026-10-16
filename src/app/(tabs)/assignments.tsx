@@ -21,6 +21,7 @@ import { addDays, startOfDay, startOfWeek } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { isStaffRole } from '@/navigation/features';
 import { useAuthStore } from '@/stores/auth.store';
+import { MenuButton } from '@/features/navigation/app-menu';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 export default function AssignmentsScreen() {
@@ -109,26 +110,14 @@ function StudentAssignments() {
   }, [items, status, now]);
 
   const searching = search.trim().length > 0;
-  const subtitle = searching
-    ? `${items.length} kết quả cho “${search.trim()}”`
-    : all.data && (counts.todo || counts.overdue)
-      ? [
-          `${counts.todo} bài cần làm`,
-          counts.soon ? `${counts.soon} sắp hết hạn` : null,
-          counts.overdue ? `${counts.overdue} quá hạn` : null,
-          counts.redo ? `${counts.redo} cần làm lại` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      : all.data
-        ? 'Bạn đã nộp hết bài 🎉'
-        : ' ';
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top + 8 }}>
-      <View className="gap-0.5 px-4 pb-1">
-        <Text className="text-[30px] font-extrabold tracking-tight text-foreground">Bài tập</Text>
-        <Text className="text-[14px] text-muted">{subtitle}</Text>
+      <View className="flex-row items-center gap-3 px-4 pb-2">
+        <MenuButton />
+        <Text className="flex-1 text-[28px] font-extrabold tracking-tight text-foreground" numberOfLines={1}>
+          Bài tập
+        </Text>
       </View>
 
       <View className="h-11 flex-row items-center gap-2 rounded-full bg-surface-muted px-4" style={{ marginHorizontal: 16, marginTop: 10 }}>
@@ -171,6 +160,13 @@ function StudentAssignments() {
           );
         })}
       </View>
+
+      {/* Số kết quả chỉ hiện lúc đang tìm — các con số khác đã nằm sẵn trên chip lọc */}
+      {searching ? (
+        <Text className="px-4 pb-2 text-[12.5px] font-medium text-muted">
+          {items.length} kết quả cho “{search.trim()}”
+        </Text>
+      ) : null}
 
       {q.isLoading ? (
         <LoadingView />

@@ -13,6 +13,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /** Bảng điểm — chọn lớp trước (web cũng là màn chọn lớp rồi mới mở bảng điểm của lớp đó). */
 export default function GradebookPickerScreen() {
@@ -43,7 +44,7 @@ export default function GradebookPickerScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Bảng điểm' }} />
+      <Stack.Screen options={{ title: 'Bảng điểm', ...menuScreenOptions }} />
       {classes.isLoading ? (
         <LoadingView />
       ) : classes.isError ? (

@@ -29,7 +29,8 @@ export interface SessionAdmin {
   reasons?: Map<string, AbsenceReasonItem>;
   onSetPresent: (userId: string, present: boolean) => void;
   onReason: (userId: string, name: string, current?: AbsenceReasonItem) => void;
-  onMenu: () => void;
+  /** Không truyền = ẩn "Sửa / xoá buổi" (vd xem theo nhóm — buổi học là của cả lớp) */
+  onMenu?: () => void;
 }
 
 export const SessionCard = memo(function SessionCard({
@@ -110,7 +111,7 @@ export const SessionCard = memo(function SessionCard({
                 <Text className="text-[13px] font-semibold text-foreground">Mở link Zoom</Text>
               </Pressable>
             ) : null}
-            {admin ? (
+            {admin?.onMenu ? (
               <Pressable
                 onPress={admin.onMenu}
                 className="flex-row items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 active:opacity-70">

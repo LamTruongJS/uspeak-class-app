@@ -44,11 +44,13 @@ export const HOME_SHORTCUT_3D_ICONS: Readonly<Record<string, number>> = {
   chat: require('../../assets/images/shortcut-icons/class-chat.png'),
   forum: require('../../assets/images/shortcut-icons/home-forum.png'),
   feedback: require('../../assets/images/shortcut-icons/home-feedback.png'),
+  dashboard: require('../../assets/images/shortcut-icons/learning-report.png'),
   classes: require('../../assets/images/shortcut-icons/my-classes-color.png'),
   'teaching-groups': require('../../assets/images/shortcut-icons/home-teaching-groups.png'),
   gradebook: require('../../assets/images/shortcut-icons/learning-report.png'),
   'online-users': require('../../assets/images/shortcut-icons/home-online-users.png'),
   'pro-tracking': require('../../assets/images/shortcut-icons/learning-report.png'),
+  reports: require('../../assets/images/shortcut-icons/report-submission-status.png'),
   grading: require('../../assets/images/shortcut-icons/class-assignments.png'),
   regrades: require('../../assets/images/shortcut-icons/home-regrades.png'),
   'redo-requests': require('../../assets/images/shortcut-icons/home-redo-requests.png'),
@@ -56,6 +58,14 @@ export const HOME_SHORTCUT_3D_ICONS: Readonly<Record<string, number>> = {
   'grading-reviews': require('../../assets/images/shortcut-icons/report-completion.png'),
   'payment-requests': require('../../assets/images/shortcut-icons/home-payment-requests.png'),
   'input-surveys': require('../../assets/images/shortcut-icons/class-survey.png'),
+  'grading-management': require('../../assets/images/shortcut-icons/staff-pending-grading.png'),
+  'rubric-templates': require('../../assets/images/shortcut-icons/elearning-document.png'),
+  permissions: require('../../assets/images/shortcut-icons/home-online-users.png'),
+  'payment-settings': require('../../assets/images/shortcut-icons/home-payment-requests.png'),
+  'admin-feedback': require('../../assets/images/shortcut-icons/home-feedback.png'),
+  'certificate-editor': require('../../assets/images/shortcut-icons/my-certificates-color.png'),
+  account: require('../../assets/images/shortcut-icons/home-online-users.png'),
+  policies: require('../../assets/images/shortcut-icons/home-documents.png'),
 };
 
 export const CLASS_CONTENT_3D_ICONS = {
@@ -115,4 +125,26 @@ export const STAFF_DASHBOARD_3D_ICONS = {
   waitingReview: require('../../assets/images/shortcut-icons/staff-waiting-review.png'),
   regradeRequest: require('../../assets/images/shortcut-icons/staff-regrade-request.png'),
   urgent: require('../../assets/images/shortcut-icons/dashboard-warning.png'),
+} as const;
+
+/** Asset 3D cho màn thống kê hoạt động nhận xét của người chấm. */
+export const GRADING_STATS_3D_ICONS = {
+  level: require('../../assets/images/shortcut-icons/course-privileges-color.png'),
+  earnings: require('../../assets/images/shortcut-icons/home-payment-requests.png'),
+  approved: require('../../assets/images/shortcut-icons/staff-completed-reviews.png'),
+  waiting: require('../../assets/images/shortcut-icons/staff-waiting-review.png'),
+  overdue: require('../../assets/images/shortcut-icons/dashboard-overdue.png'),
+  regrade: require('../../assets/images/shortcut-icons/staff-regrade-request.png'),
+  timeout: require('../../assets/images/shortcut-icons/dashboard-warning.png'),
+} as const;
+
+/** Asset 3D cho trang chủ trợ giảng (features/dashboard/assistant-dashboard.tsx). */
+export const ASSISTANT_DASHBOARD_3D_ICONS = {
+  schedule: require('../../assets/images/shortcut-icons/class-schedule.png'),
+  pendingGrading: require('../../assets/images/shortcut-icons/staff-pending-grading.png'),
+  attention: require('../../assets/images/shortcut-icons/dashboard-warning.png'),
+  groups: require('../../assets/images/shortcut-icons/home-teaching-groups.png'),
+  attendance: require('../../assets/images/shortcut-icons/report-attendance.png'),
+  completion: require('../../assets/images/shortcut-icons/report-completion.png'),
+  score: require('../../assets/images/shortcut-icons/report-average-score.png'),
 } as const;

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -14,22 +14,33 @@ import {
   FEEDBACK_STATUS_VIEW,
   FEEDBACK_TYPE_LABEL,
   useAddFeedbackMessage,
+  useDeleteFeedback,
   useFeedbackDetail,
+  useSetFeedbackStatus,
   type FeedbackImage,
 } from '@/features/feedback/api';
+import { useActionSheet } from '@/components/ui/action-sheet';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
 
-/** Một luồng góp ý: tin đầu của mình, các lượt nhắn qua lại với Uspeak, và ô nhắn tiếp. */
+/**
+ * Một luồng góp ý — DÙNG CHUNG cho hai phía, phân biệt bằng tham số `admin=1`:
+ * - học viên / nhân sự: tin của mình bên phải, Uspeak bên trái;
+ * - admin (mở từ màn Quản lý góp ý): ngược lại, kèm nút đổi trạng thái và xoá.
+ */
 export default function FeedbackDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, admin } = useLocalSearchParams<{ id: string; admin?: string }>();
+  const isAdmin = admin === '1';
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
+  const sheet = useActionSheet();
 
   const detail = useFeedbackDetail(id);
   const addMessage = useAddFeedbackMessage(id);
+  const setStatus = useSetFeedbackStatus(id);
+  const removeFeedback = useDeleteFeedback();
   const pull = usePullRefresh(() => detail.refetch());
 
   const [text, setText] = useState('');
@@ -39,6 +50,54 @@ export default function FeedbackDetailScreen() {
   const data = detail.data;
   const status = data ? (FEEDBACK_STATUS_VIEW[data.status] ?? FEEDBACK_STATUS_VIEW.NEW) : null;
   const closed = data?.status === 'CLOSED';
+  // Admin vẫn nhắn được trong luồng đã đóng? Không — đóng rồi thì phải mở lại trước, tránh nhắn vào
+  // luồng người ta tưởng đã xong.
+  const canWrite = !closed;
+  const thread = data?.messages ?? [];
+  const threadMessages =
+    thread.length && thread[0].senderType === 'USER' && thread[0].message === data?.message ? thread.slice(1) : thread;
+
+  async function changeStatus(next: 'REPLIED' | 'CLOSED') {
+    try {
+      await setStatus.mutateAsync(next);
+      showToast('success', next === 'CLOSED' ? 'Đã đóng góp ý' : 'Đã mở lại góp ý');
+    } catch (err) {
+      showToast('error', 'Chưa đổi được trạng thái', getErrorMessage(err));
+    }
+  }
+
+  function openAdminMenu() {
+    if (!data) return;
+    sheet.show({
+      title: data.userName || 'Góp ý',
+      actions: [
+        closed
+          ? { label: 'Mở lại góp ý', icon: 'refresh-outline', onPress: () => void changeStatus('REPLIED') }
+          : { label: 'Đóng góp ý', icon: 'checkmark-done-outline', onPress: () => void changeStatus('CLOSED') },
+        {
+          label: 'Xoá góp ý',
+          icon: 'trash-outline',
+          danger: true,
+          onPress: () =>
+            sheet.confirm({
+              title: 'Xoá góp ý này?',
+              message: 'Cả luồng trò chuyện sẽ mất, không khôi phục được.',
+              label: 'Xoá',
+              icon: 'trash-outline',
+              onConfirm: async () => {
+                try {
+                  await removeFeedback.mutateAsync(id);
+                  showToast('success', 'Đã xoá góp ý');
+                  router.back();
+                } catch (err) {
+                  showToast('error', 'Chưa xoá được', getErrorMessage(err));
+                }
+              },
+            }),
+        },
+      ],
+    });
+  }
 
   async function pickImages() {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -64,7 +123,19 @@ export default function FeedbackDetailScreen() {
 
   return (
     <KeyboardAvoider>
-      <Stack.Screen options={{ title: 'Chi tiết góp ý' }} />
+      <Stack.Screen
+        options={{
+          title: isAdmin ? data?.userName || 'Góp ý' : 'Chi tiết góp ý',
+          headerRight: isAdmin
+            ? () => (
+                <Pressable onPress={openAdminMenu} hitSlop={8} accessibilityLabel="Tuỳ chọn" className="active:opacity-60">
+                  <Ionicons name="ellipsis-horizontal" size={22} color={muted} />
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
+      {sheet.sheet}
       <View className="flex-1 bg-background">
         {detail.isLoading ? (
           <LoadingView />
@@ -88,32 +159,40 @@ export default function FeedbackDetailScreen() {
               </View>
 
               <Bubble
-                mine
-                name="Bạn"
+                mine={!isAdmin}
+                name={isAdmin ? data.userName || 'Người gửi' : 'Bạn'}
                 time={data.createdAt}
                 message={data.message}
                 images={data.images}
                 onOpenImage={setViewer}
               />
 
-              {data.messages?.map((m, i) => (
-                <Bubble
-                  key={`${m.createdAt}-${i}`}
-                  mine={m.senderType === 'USER'}
-                  name={m.senderType === 'USER' ? 'Bạn' : m.senderName || 'Uspeak'}
-                  time={m.createdAt}
-                  message={m.message}
-                  images={m.images}
-                  onOpenImage={setViewer}
-                />
-              ))}
+              {/* class-be lưu LUÔN tin đầu vào mảng `messages` (feedback.service create) nên nếu vẽ cả
+                  `data.message` lẫn cả mảng thì tin đầu hiện 2 lần. Bỏ bản trùng ở đầu mảng, vẫn giữ
+                  bong bóng riêng phía trên vì ảnh đính kèm nằm ở `data.images` chứ không ở trong mảng. */}
+              {threadMessages.map((m, i) => {
+                const fromUser = m.senderType === 'USER';
+                return (
+                  <Bubble
+                    key={`${m.createdAt}-${i}`}
+                    mine={isAdmin ? !fromUser : fromUser}
+                    name={fromUser ? (isAdmin ? data.userName || 'Người gửi' : 'Bạn') : isAdmin ? 'Bạn' : m.senderName || 'Uspeak'}
+                    time={m.createdAt}
+                    message={m.message}
+                    images={m.images}
+                    onOpenImage={setViewer}
+                  />
+                );
+              })}
 
               {closed ? (
-                <Text className="py-2 text-center text-[13px] text-muted">Góp ý đã được đóng. Cần hỗ trợ thêm, bạn gửi góp ý mới nhé.</Text>
+                <Text className="py-2 text-center text-[13px] text-muted">
+                  {isAdmin ? 'Góp ý đã đóng. Mở lại ở menu góc trên nếu cần trả lời tiếp.' : 'Góp ý đã được đóng. Cần hỗ trợ thêm, bạn gửi góp ý mới nhé.'}
+                </Text>
               ) : null}
             </ScrollView>
 
-            {!closed ? (
+            {canWrite ? (
               <View className="gap-2 border-t border-border bg-surface p-3">
                 {images.length ? (
                   <View className="flex-row flex-wrap gap-2">
@@ -142,7 +221,7 @@ export default function FeedbackDetailScreen() {
                   <TextInput
                     value={text}
                     onChangeText={setText}
-                    placeholder="Nhắn tiếp cho Uspeak…"
+                    placeholder={isAdmin ? 'Trả lời người gửi…' : 'Nhắn tiếp cho Uspeak…'}
                     placeholderTextColor={muted}
                     multiline
                     className="max-h-28 flex-1 rounded-2xl bg-surface-muted px-3.5 py-2.5 text-base text-foreground"

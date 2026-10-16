@@ -29,6 +29,7 @@ import { formatDate, formatDateTime } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type Tab = 'requests' | 'submissions';
@@ -275,7 +276,7 @@ export default function PaymentRequestsScreen() {
 function Frame({ children }: { children: React.ReactNode }) {
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Yêu cầu thanh toán' }} />
+      <Stack.Screen options={{ title: 'Yêu cầu thanh toán', ...menuScreenOptions }} />
       {children}
     </View>
   );

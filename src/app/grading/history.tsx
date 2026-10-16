@@ -12,6 +12,7 @@ import {
 import { GroupedList, groupByDay, ListToolbar, SubmissionRow, timeOf, type Tone } from '@/features/assignments/staff-list';
 import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 const MY_STATUS_VIEW: Record<string, { text: string; tone: Tone }> = {
   in_progress: { text: 'Đang nhận xét', tone: 'info' },
@@ -68,7 +69,7 @@ export default function GradingHistoryScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Lịch sử nhận xét' }} />
+      <Stack.Screen options={{ title: 'Lịch sử nhận xét', ...menuScreenOptions }} />
       <GroupedList
         sections={sections}
         keyOf={(i) => i._id}

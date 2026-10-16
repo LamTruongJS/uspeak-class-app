@@ -12,6 +12,7 @@ import {
   cellView,
   studentAverage,
   useGradebook,
+  useGroupScope,
   visibleAssignments,
   type CellTone,
   type GradebookAssignment,
@@ -68,7 +69,9 @@ interface StudentRow {
 }
 
 export default function GradebookScreen() {
-  const { classId } = useLocalSearchParams<{ classId: string }>();
+  const { classId, group } = useLocalSearchParams<{ classId: string; group?: string }>();
+  // ?group=<id> (mở từ trang nhóm): chỉ học viên của nhóm
+  const scope = useGroupScope(group);
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
   const [view, setView] = useState<View_>('students');
@@ -87,13 +90,15 @@ export default function GradebookScreen() {
 
   const all = useMemo<StudentRow[]>(
     () =>
-      (query.data?.students ?? []).map((st) => ({
+      (query.data?.students ?? [])
+        .filter((st) => !scope.ids || scope.ids.has(st.student_id))
+        .map((st) => ({
         st,
         avg: studentAverage(st, grading),
         missing: grading.filter((a) => (st.scores?.[a._id]?.status ?? 'not_submitted') === 'not_submitted').length,
         pending: columns.filter((a) => cellView(st.scores?.[a._id], a).tone === 'pending').length,
       })),
-    [query.data, grading, columns],
+    [query.data, grading, columns, scope.ids],
   );
 
   const rows = useMemo(() => {
@@ -241,7 +246,7 @@ export default function GradebookScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen
         options={{
-          title: 'Bảng điểm',
+          title: scope.active ? (scope.name ? `Bảng điểm · ${scope.name}` : 'Bảng điểm nhóm') : 'Bảng điểm',
           headerRight: () =>
             query.data ? (
               <Pressable

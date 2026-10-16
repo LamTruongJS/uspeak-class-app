@@ -11,6 +11,7 @@ import { api, getErrorMessage } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Chứng chỉ học tập của học viên — GET `/students/me/certificates` (giống web my-certificates):
@@ -50,7 +51,7 @@ export default function CertificatesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Chứng chỉ học tập' }} />
+      <Stack.Screen options={{ title: 'Chứng chỉ học tập', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

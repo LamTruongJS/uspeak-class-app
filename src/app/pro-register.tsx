@@ -13,6 +13,7 @@ import { api, getErrorMessage } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Đăng kí lớp UspeakPro — bản mobile của web /course-privileges (luật copy từ
@@ -268,7 +269,7 @@ export default function ProRegisterScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Đăng kí lớp UspeakPro' }} />
+      <Stack.Screen options={{ title: 'Đăng kí lớp UspeakPro', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

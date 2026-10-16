@@ -11,6 +11,8 @@ export interface ChatRoomItem {
   type: ChatRoomType;
   class_id?: string;
   class_code?: string | null;
+  /** Nhóm giảng dạy CRM — phòng chat của nhóm (type group / sub_room) */
+  group_id?: string | null;
   /** Phòng bị khoá chat (chỉ quản trị gửi được) */
   is_muted: boolean;
   is_active: boolean;

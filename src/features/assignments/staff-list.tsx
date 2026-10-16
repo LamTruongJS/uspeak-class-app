@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { memo, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
 import { StateView } from '@/components/ui/state-view';
+import { assignmentKind } from '@/features/assignments/assignment-card';
 import { getErrorMessage } from '@/lib/api/client';
 import { addDays, formatDate, formatTime, isSameDay, startOfDay, WEEKDAY_FULL } from '@/lib/format';
 import { resolveMediaUrl } from '@/lib/media';
@@ -70,6 +72,7 @@ export const SubmissionRow = memo(function SubmissionRow({
   pills,
   note,
   footer,
+  assignmentType,
   onPress,
 }: {
   studentName: string;
@@ -83,46 +86,60 @@ export const SubmissionRow = memo(function SubmissionRow({
   note?: { label: string; text: string } | null;
   /** Dòng nhỏ cuối thẻ (thời gian, người yêu cầu…) */
   footer?: string;
+  /** Loại bài để chọn đúng icon 3D; thiếu dữ liệu sẽ dùng icon bài tập chung. */
+  assignmentType?: { code: string; label: string } | null;
   onPress?: () => void;
 }) {
   const muted = useThemeColor('muted');
+  const icon3d = assignmentKind({ assignment_type: assignmentType ?? null, shadowing: null }).icon3d;
   return (
-    <Pressable onPress={onPress} disabled={!onPress} className="gap-2.5 rounded-3xl bg-surface p-3.5 active:opacity-85">
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      className="gap-3 rounded-3xl border border-border bg-surface p-4 active:opacity-85">
       <View className="flex-row items-center gap-3">
-        <Avatar name={studentName} uri={resolveMediaUrl(studentAvatar, token)} size={40} />
-        <View className="flex-1">
-          <Text className="text-[14.5px] font-bold text-foreground" numberOfLines={1}>
-            {studentName}
+        <View className="h-12 w-12 items-center justify-center overflow-hidden">
+          {icon3d ? <Image source={icon3d} style={{ width: 46, height: 46 }} contentFit="contain" accessible={false} /> : null}
+        </View>
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-[15px] font-bold leading-5 text-foreground" numberOfLines={2}>
+            {title}
           </Text>
           {meta ? (
-            <Text className="text-[12.5px] text-muted" numberOfLines={1}>
+            <Text className="text-[12px] leading-4 text-muted" numberOfLines={1}>
               {meta}
             </Text>
           ) : null}
         </View>
         {onPress ? <Ionicons name="chevron-forward" size={16} color={muted} /> : null}
       </View>
-      <Text className="text-[15px] font-semibold leading-5 text-foreground" numberOfLines={2}>
-        {title}
-      </Text>
+
+      <View className="flex-row items-center gap-2.5 rounded-xl bg-surface-muted px-2.5 py-2">
+        <Avatar name={studentName} uri={resolveMediaUrl(studentAvatar, token)} size={26} />
+        <Text className="min-w-0 flex-1 text-[13px] font-medium text-foreground" numberOfLines={1}>
+          {studentName}
+        </Text>
+        {footer ? (
+          <Text className="max-w-[48%] text-right text-[11.5px] text-muted" numberOfLines={1}>
+            {footer}
+          </Text>
+        ) : null}
+      </View>
+
       {note?.text ? (
-        <View className="rounded-2xl bg-surface-muted px-3 py-2">
+        <View className="rounded-2xl border border-border bg-background px-3 py-2.5">
           <Text className="text-[13px] leading-[18px] text-foreground" numberOfLines={3}>
             <Text className="font-semibold">{note.label}: </Text>
             {note.text}
           </Text>
         </View>
       ) : null}
-      {pills?.length || footer ? (
+
+      {pills?.length ? (
         <View className="flex-row flex-wrap items-center gap-1.5">
           {pills?.map((p) => (
             <Pill key={p.text} text={p.text} tone={p.tone} />
           ))}
-          {footer ? (
-            <Text className="ml-auto text-[12px] text-muted" numberOfLines={1}>
-              {footer}
-            </Text>
-          ) : null}
         </View>
       ) : null}
     </Pressable>
@@ -157,19 +174,19 @@ export function ListToolbar<T extends string, F extends string>({
   return (
     <View className="gap-3 pb-1">
       {tabs && onTab ? (
-        <View className="flex-row rounded-full bg-surface-muted p-1">
+        <View className="flex-row rounded-2xl bg-surface-muted p-1">
           {tabs.map((t) => (
             <Pressable
               key={t.value}
               onPress={() => onTab(t.value)}
-              className={`h-9 flex-1 items-center justify-center rounded-full ${tab === t.value ? 'bg-surface' : ''}`}>
+              className={`h-9 flex-1 items-center justify-center rounded-xl ${tab === t.value ? 'bg-surface' : ''}`}>
               <Text className={`text-[13.5px] font-semibold ${tab === t.value ? 'text-foreground' : 'text-muted'}`}>{t.label}</Text>
             </Pressable>
           ))}
         </View>
       ) : null}
       {onSearch ? (
-        <View className="h-11 flex-row items-center gap-2 rounded-full bg-surface-muted px-4">
+        <View className="h-11 flex-row items-center gap-2 rounded-2xl bg-surface-muted px-4">
           <Ionicons name="search" size={17} color={muted} />
           <TextInput
             value={search}
@@ -194,14 +211,19 @@ export function ListToolbar<T extends string, F extends string>({
               <Pressable
                 key={f.value}
                 onPress={() => onFilter(f.value)}
-                className={`h-8 justify-center rounded-full px-3.5 active:opacity-80 ${on ? 'bg-foreground' : 'bg-surface-muted'}`}>
-                <Text className={`text-[13px] font-semibold ${on ? 'text-background' : 'text-muted'}`}>{f.label}</Text>
+                className={`h-8 justify-center rounded-full px-3.5 active:opacity-80 ${on ? 'bg-brand' : 'bg-surface-muted'}`}>
+                <Text className={`text-[13px] font-semibold ${on ? 'text-on-brand' : 'text-muted'}`}>{f.label}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
       ) : null}
-      {summary ? <Text className="text-[13px] text-muted">{summary}</Text> : null}
+      {summary ? (
+        <View className="flex-row items-center gap-1.5 px-0.5">
+          <Ionicons name="layers-outline" size={14} color={muted} />
+          <Text className="text-[13px] font-medium text-muted">{summary}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -241,7 +263,7 @@ export function GroupedList<T>({
       keyExtractor={keyOf}
       stickySectionHeadersEnabled={false}
       ListHeaderComponent={header}
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       ItemSeparatorComponent={() => <View className="h-2.5" />}
@@ -251,7 +273,7 @@ export function GroupedList<T>({
         if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage?.();
       }}
       renderSectionHeader={({ section }) => (
-        <Text className="pb-2.5 pt-4 text-[13px] font-bold uppercase tracking-wide text-muted">
+        <Text className="pb-2.5 pt-5 text-[12px] font-bold uppercase tracking-[0.8px] text-muted">
           {section.title} <Text className="font-semibold normal-case">· {section.data.length}</Text>
         </Text>
       )}

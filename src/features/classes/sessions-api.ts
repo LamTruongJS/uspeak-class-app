@@ -187,6 +187,28 @@ export function absentList(session: ClassSessionItem, markedAbsent: GroupedParti
   return Array.from(byId.values()).sort(compareByGroupThenName);
 }
 
+/**
+ * Chỉ giữ học viên trong `ids` (học viên của 1 nhóm giảng dạy): người tham gia, người vắng, sĩ số.
+ * Người lạ / giáo viên / trợ giảng bị bỏ — trang nhóm chỉ nói về học viên của nhóm.
+ */
+export function scopeSession(session: ClassSessionItem, ids: Set<string>): ClassSessionItem {
+  const participants = (session.participants ?? []).filter((p) => {
+    const uid = participantUserId(p);
+    return !!uid && ids.has(uid);
+  });
+  const absent = (session.absent_students ?? []).filter((a) => ids.has(a._id));
+  const enrolled = (session.enrolled_students ?? []).filter((a) => ids.has(a._id));
+  return {
+    ...session,
+    participants,
+    absent_students: absent,
+    enrolled_students: enrolled,
+    stats: session.stats
+      ? { ...session.stats, enrolled: enrolled.length || ids.size, absent: absent.length, notInCrm: 0 }
+      : session.stats,
+  };
+}
+
 /** Buổi 1 của CRM là buổi khai giảng → buổi N hiển thị là N-1 (luật của web, đừng đổi một bên). */
 export function sessionTitle(session: ClassSessionItem, fallbackNumber: number) {
   if (session.session_number === 1) return 'Buổi khai giảng';

@@ -10,6 +10,7 @@ import { api } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
 import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 interface ReviewQueuePage {
   data: GradingQueueItem[];
@@ -56,7 +57,7 @@ export default function GradingReviewsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Review bài nhận xét' }} />
+      <Stack.Screen options={{ title: 'Review bài nhận xét', ...menuScreenOptions }} />
       <GroupedList
         sections={sections}
         keyOf={(i) => i._id}
@@ -87,6 +88,7 @@ export default function GradingReviewsScreen() {
               studentAvatar={item.student_avatar}
               token={token?.media_token}
               title={item.assignment_title}
+              assignmentType={item.assignment_type}
               meta={[item.class_code || item.class_name, sessionLabel(item.session_number)].filter(Boolean).join(' · ')}
               pills={pills}
               footer={

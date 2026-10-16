@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { isAxiosError } from 'axios';
 import { memo, useDeferredValue, useEffect, useMemo, useState, type ComponentProps } from 'react';
@@ -9,14 +10,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { StateView } from '@/components/ui/state-view';
+import { ASSIGNMENT_3D_ICONS } from '@/constants/three-d-icons';
 import { roomTime } from '@/features/chat/format';
 import { getErrorMessage } from '@/lib/api/client';
 import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
-import { useMyPermissionCodes } from '@/features/chat/api';
-import { featuresForUser } from '@/navigation/features';
-import { openFeature } from '@/navigation/open-feature';
-import { useAuthStore } from '@/stores/auth.store';
+import { MenuButton } from '@/features/navigation/app-menu';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 import { deadlineUrgency, gradingApi, useGradingQueue, type GradingQueueItem, type GradingStatusFilter, type Urgency } from './grading-api';
@@ -29,12 +28,15 @@ const FILTERS: { value: GradingStatusFilter; label: string }[] = [
   { value: 'reassigned', label: 'Chờ nhận lại' },
 ];
 
-const TYPE_ICON: Record<string, { icon: IconName; color: string }> = {
-  video_speaking: { icon: 'videocam', color: '#7c3aed' },
-  youtube_video: { icon: 'logo-youtube', color: '#7c3aed' },
-  quiz: { icon: 'help-circle', color: '#0891b2' },
-  essay: { icon: 'create', color: '#ea580c' },
-  image_upload: { icon: 'image', color: '#db2777' },
+/** Icon 3D theo loại bài, dùng cùng bộ nhận diện với danh sách bài tập của học viên. */
+const assignment3dIcon = (type: GradingQueueItem['assignment_type']) => {
+  const value = `${type?.code ?? ''} ${type?.label ?? ''}`.toLowerCase();
+  if (value.includes('shadow') || value.includes('dictation') || value.includes('nghe chép')) return ASSIGNMENT_3D_ICONS.shadowing;
+  if (value.includes('quiz') || value.includes('test') || value.includes('trắc nghiệm')) return ASSIGNMENT_3D_ICONS.quiz;
+  if (value.includes('image') || value.includes('ảnh') || value.includes('writing') || value.includes('viết'))
+    return ASSIGNMENT_3D_ICONS.imageUpload;
+  if (value.includes('video') || value.includes('speaking') || value.includes('nói')) return ASSIGNMENT_3D_ICONS.videoSpeaking;
+  return ASSIGNMENT_3D_ICONS.generic;
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -129,16 +131,17 @@ export function GradingQueueScreen() {
           </Text>
         </View>
       ) : null}
-      <GradingLinks />
     </View>
   );
 
   return (
     <View className="flex-1 bg-background">
       <View className="gap-3 px-4 pb-1" style={{ paddingTop: insets.top + 12 }}>
-        <View>
-          <Text className="text-[28px] font-bold text-foreground">Nhận xét bài</Text>
-          <Text className="text-sm text-muted">Chọn bài trong hàng chờ để bắt đầu nhận xét</Text>
+        <View className="flex-row items-center gap-3">
+          <MenuButton />
+          <Text className="flex-1 text-[28px] font-extrabold tracking-tight text-foreground" numberOfLines={1}>
+            Nhận xét bài
+          </Text>
         </View>
         <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3">
           <Ionicons name="search" size={18} color={muted} />
@@ -227,26 +230,6 @@ export function GradingQueueScreen() {
  * Màn này là tab chính của người nhận xét mà trước đây không có đường sang đâu cả — phải quay về
  * Trang chủ mới bấm được. Danh sách lọc theo ĐÚNG QUYỀN của tài khoản, như menu bên web.
  */
-function GradingLinks() {
-  const role = useAuthStore((s) => s.user?.role_code);
-  const permissions = useMyPermissionCodes();
-  const items = featuresForUser(role, permissions.data).filter((f) => f.group === 'grading' && f.key !== 'grading' && f.status === 'ready');
-  if (!items.length) return null;
-  return (
-    <View className="flex-row flex-wrap gap-2">
-      {items.map((f) => (
-        <Pressable
-          key={f.key}
-          onPress={() => openFeature(f)}
-          className="flex-row items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 active:opacity-70">
-          <Ionicons name={f.icon} size={14} color="#64748b" />
-          <Text className="text-[13px] font-medium text-foreground">{f.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 function Counter({ icon, color, value, label }: { icon: IconName; color: string; value: number; label: string }) {
   return (
     <View className="flex-1 flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
@@ -281,9 +264,8 @@ const QueueCard = memo(function QueueCard({
   onPress: () => void;
 }) {
   const urgency = deadlineUrgency(item.grading_deadline, now);
-  const t = TYPE_ICON[item.assignment_type?.code ?? ''] ?? { icon: 'document-text' as IconName, color: '#6b7280' };
+  const icon3d = assignment3dIcon(item.assignment_type);
   const claimed = item.status === 'claimed';
-  const stripe = urgency === 'overdue' ? 'bg-danger' : urgency === 'urgent' ? 'bg-warning' : 'bg-border';
 
   return (
     <Pressable
@@ -291,19 +273,17 @@ const QueueCard = memo(function QueueCard({
       accessibilityLabel={`Nhận xét bài ${item.assignment_title} của ${item.student_name}`}
       onPress={onPress}
       disabled={opening}
-      className="flex-row overflow-hidden rounded-2xl border border-border bg-surface active:opacity-85">
-      <View className={`w-1 ${stripe}`} />
-      <View className="flex-1 gap-2.5 p-3.5">
+      className="gap-3 overflow-hidden rounded-3xl border border-border bg-surface p-4 active:opacity-85">
         {/* Bài tập */}
-        <View className="flex-row items-start gap-2.5">
-          <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${t.color}1f` }}>
-            <Ionicons name={t.icon} size={18} color={t.color} />
+        <View className="flex-row items-center gap-3">
+          <View className="h-12 w-12 items-center justify-center overflow-hidden">
+            <Image source={icon3d} style={{ width: 46, height: 46 }} contentFit="contain" accessible={false} />
           </View>
-          <View className="flex-1">
-            <Text className="text-[15px] font-semibold leading-5 text-foreground" numberOfLines={2}>
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text className="text-[15px] font-bold leading-5 text-foreground" numberOfLines={2}>
               {item.assignment_title}
             </Text>
-            <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
+            <Text className="text-[12px] leading-4 text-muted" numberOfLines={1}>
               {[item.assignment_type?.label, item.class_code, item.group_name, item.session_number ? `Buổi ${item.session_number}` : null]
                 .filter(Boolean)
                 .join(' · ')}
@@ -312,17 +292,20 @@ const QueueCard = memo(function QueueCard({
         </View>
 
         {/* Học viên + lúc nộp */}
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-2.5 rounded-xl bg-surface-muted px-2.5 py-2">
           <Avatar
             name={item.student_name}
             uri={resolveMediaUrl(item.student_avatar, token)}
             cacheKey={mediaCacheKey(item.student_avatar)}
             size={24}
           />
-          <Text className="flex-1 text-[13px] text-foreground" numberOfLines={1}>
+          <Text className="flex-1 text-[13px] font-medium text-foreground" numberOfLines={1}>
             {item.student_name}
           </Text>
-          <Text className="text-xs text-muted">Nộp {roomTime(item.submitted_at)}</Text>
+          <View className="flex-row items-center gap-1">
+            <Ionicons name="time-outline" size={12} color={muted} />
+            <Text className="text-[11.5px] text-muted">Nộp {roomTime(item.submitted_at)}</Text>
+          </View>
         </View>
 
         {/* Nhãn */}
@@ -340,7 +323,7 @@ const QueueCard = memo(function QueueCard({
         </View>
 
         {/* Hành động */}
-        <View className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2.5 ${blocked ? 'bg-surface-muted' : 'bg-brand'}`}>
+        <View className={`h-10 flex-row items-center justify-center gap-1.5 rounded-xl ${blocked ? 'bg-surface-muted' : 'bg-brand'}`}>
           {opening ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -350,7 +333,6 @@ const QueueCard = memo(function QueueCard({
             {opening ? 'Đang mở...' : blocked ? 'Nhận xét bài gấp trước' : 'Nhận xét bài'}
           </Text>
         </View>
-      </View>
     </Pressable>
   );
 });

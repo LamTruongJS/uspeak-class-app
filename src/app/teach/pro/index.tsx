@@ -9,6 +9,7 @@ import { useProPackages, type ProPackage } from '@/features/classes/teach-api';
 import { getErrorMessage } from '@/lib/api/client';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /** Theo dõi học viên PRO — chọn gói (lớp combo) rồi xem tiến độ từng học viên trong gói. */
 export default function ProPackagesScreen() {
@@ -19,7 +20,7 @@ export default function ProPackagesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Theo dõi học viên PRO' }} />
+      <Stack.Screen options={{ title: 'Theo dõi học viên PRO', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

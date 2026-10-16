@@ -7,6 +7,7 @@ import { useMyRegradeRequests } from '@/features/assignments/requests-api';
 import { GroupedList, groupByDay, ListToolbar, SubmissionRow, timeOf, type Tone } from '@/features/assignments/staff-list';
 import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 type Tab = 'assigned' | 'requester';
 
@@ -35,7 +36,7 @@ export default function RegradesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Nhận xét bài lại' }} />
+      <Stack.Screen options={{ title: 'Nhận xét bài lại', ...menuScreenOptions }} />
       <GroupedList
         key={tab}
         sections={sections}
@@ -76,6 +77,7 @@ export default function RegradesScreen() {
               studentAvatar={item.student_avatar}
               token={token?.media_token}
               title={item.assignment_title}
+              assignmentType={item.assignment_type}
               meta={[item.class_code || item.class_name, sessionLabel(item.session_number ?? undefined)].filter(Boolean).join(' · ')}
               note={item.reason ? { label: 'Lý do', text: item.reason } : null}
               pills={[

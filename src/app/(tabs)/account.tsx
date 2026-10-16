@@ -18,21 +18,13 @@ import { EditProfileSheet } from '@/features/auth/edit-profile-sheet';
 import { PaymentInfoSheet } from '@/features/auth/payment-info-sheet';
 import { findBank } from '@/features/auth/vietqr-banks';
 import { getErrorMessage } from '@/lib/api/client';
-import { FEATURES } from '@/navigation/features';
+import { FEATURES, ROLE_NAMES } from '@/navigation/features';
 import { openFeature } from '@/navigation/open-feature';
 import { useAuthStore } from '@/stores/auth.store';
 import { setThemePreference, useThemePreference, type ThemePreference } from '@/theme/theme-preference';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-
-const ROLE_NAMES: Record<string, string> = {
-  AD: 'Quản trị viên',
-  TE: 'Giáo viên',
-  TA: 'Trợ giảng',
-  TG: 'Nhận xét bài',
-  ST: 'Học viên',
-};
 
 /** Icon + màu nền của từng vai trò (ô vuông màu kiểu Cài đặt iOS) */
 const ROLE_STYLE: Record<string, { icon: IconName; color: string }> = {
@@ -123,7 +115,7 @@ export default function AccountScreen() {
   }
 
   return (
-    <Screen title="Tài khoản">
+    <Screen title="Tài khoản" menu>
       {/* ── Thẻ hồ sơ ── */}
       <LinearGradient
         colors={['#c8262c', '#8b191e']}

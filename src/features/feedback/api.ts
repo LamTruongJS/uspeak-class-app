@@ -141,3 +141,57 @@ export function useAddFeedbackMessage(id: string) {
     },
   });
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+//  Quản lý góp ý (admin) — bản mobile của trang /admin/feedback bên web
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface FeedbackFilter {
+  search?: string;
+  type?: FeedbackType;
+  status?: FeedbackStatus;
+}
+
+export const adminFeedbackKey = (f: FeedbackFilter) => ['feedback', 'all', f.search ?? '', f.type ?? '', f.status ?? ''] as const;
+
+/** Toàn bộ góp ý (chỉ admin gọi được — class-be chặn bằng `ensureAdmin`). */
+export function useAllFeedback(filter: FeedbackFilter) {
+  return useInfiniteQuery({
+    queryKey: adminFeedbackKey(filter),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) =>
+      (
+        await api.get<FeedbackListResponse>('/feedback', {
+          params: { page: pageParam, limit: PAGE_SIZE, search: filter.search || undefined, type: filter.type, status: filter.status },
+        })
+      ).data,
+    getNextPageParam: (last, pages) => {
+      const totalPages = last.pagination?.totalPages ?? 1;
+      return pages.length < totalPages ? pages.length + 1 : undefined;
+    },
+  });
+}
+
+/**
+ * Đổi trạng thái góp ý (đã phản hồi / đóng / mở lại). Dùng chung endpoint `reply` của web:
+ * gửi kèm `replyMessage` thì nó vừa đổi trạng thái vừa lưu câu trả lời, ở app chỉ cần phần trạng thái
+ * vì nhắn thì đã có `POST /feedback/:id/messages` (giữ được cả ảnh).
+ */
+export function useSetFeedbackStatus(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (status: FeedbackStatus) => (await api.patch<ApiResponse<FeedbackItem>>(`/feedback/${id}/reply`, { status })).data.data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: feedbackKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: ['feedback'] });
+    },
+  });
+}
+
+export function useDeleteFeedback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => api.delete(`/feedback/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feedback'] }),
+  });
+}

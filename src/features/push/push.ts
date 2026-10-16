@@ -8,6 +8,7 @@ import { AppState, Platform } from 'react-native';
 
 import { activeRoom } from '@/features/chat/active-room';
 import { useUnreadTotal } from '@/features/chat/api';
+import { useInvalidateNotifications } from '@/features/notifications/api';
 import { api } from '@/lib/api/client';
 
 /**
@@ -133,6 +134,7 @@ function createPushBridge(Notifications: typeof NotificationsModule) {
     const lastResponse = Notifications.useLastNotificationResponse();
     const handled = useRef<string | null>(null);
     const unread = useUnreadTotal();
+    const refreshNotifications = useInvalidateNotifications();
 
     useEffect(() => {
       void registerForPush();
@@ -146,6 +148,15 @@ function createPushBridge(Notifications: typeof NotificationsModule) {
       handled.current = id;
       openFromPush(lastResponse.notification.request.content.data as Record<string, unknown>);
     }, [lastResponse]);
+
+    // Thông báo hệ thống (không phải chat) tới khi đang mở app → làm mới chuông ngay, khỏi chờ 30 giây
+    useEffect(() => {
+      const sub = Notifications.addNotificationReceivedListener((n) => {
+        const data = n.request.content.data as Record<string, unknown> | undefined;
+        if (data?.kind !== 'chat') void refreshNotifications();
+      });
+      return () => sub.remove();
+    }, [refreshNotifications]);
 
     // Số trên icon app = tổng tin chat chưa đọc (bỏ phòng đã tắt thông báo) — giống badge server gửi.
     useEffect(() => {

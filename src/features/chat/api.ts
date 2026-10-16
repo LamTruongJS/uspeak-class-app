@@ -324,6 +324,18 @@ export function useRoomMessages(roomId: string) {
   });
 }
 
+/**
+ * Rời phòng → chỉ giữ trang tin MỚI NHẤT trong cache. Query vô hạn với staleTime 0 sẽ tải lại MỌI
+ * trang đã mở mỗi lần vào lại phòng (nhảy tới tin ghim / kết quả tìm có thể đã mở tới 50 trang = 50
+ * request liền nhau + giữ cả nghìn tin trong RAM). Giữ 1 trang thì vào lại vẫn hiện tin ngay, chỉ
+ * tải lại 1 trang; cuộn lên thì tải tiếp như bình thường.
+ */
+export function trimRoomMessages(roomId: string) {
+  queryClient.setQueryData<MessagesCache>(chatKeys.messages(roomId), (old) =>
+    old && old.pages.length > 1 ? { pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) } : old,
+  );
+}
+
 // ─── Cập nhật cache khi có sự kiện socket ───────────────────────────────────
 
 type MessagesCache = InfiniteData<ChatMessagesPage, number>;

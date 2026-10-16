@@ -1,61 +1,81 @@
-import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { FilterChips, SearchBox } from '@/components/ui/list-filters';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { fold } from '@/features/chat/mentions';
-import { STATUS_META } from '@/features/classes/staff-api';
+import { TeachingGroupCard } from '@/features/classes/class-card';
+import { STATUS_META, type ClassStatus } from '@/features/classes/staff-api';
 import { useMyTeachingGroups, type TeachingGroupItem } from '@/features/classes/teach-api';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 import { getErrorMessage } from '@/lib/api/client';
-import { formatDate } from '@/lib/format';
+import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
 
-/** Nhóm giảng dạy của tôi — bản mobile của web /teaching-groups (nhóm trợ giảng phụ trách). */
+type StatusFilter = 'ALL' | ClassStatus;
+
+/** Lớp đang dạy lên đầu, lớp đã kết thúc xuống cuối; cùng trạng thái thì lớp mới khai giảng trước. */
+const STATUS_ORDER: Record<ClassStatus, number> = { IN_PROGRESS: 0, OPEN_REGISTRATION: 1, CLOSED_REGISTRATION: 2, ENDED: 3 };
+
+/**
+ * Nhóm giảng dạy của tôi — bản mobile của web /teaching-groups.
+ * CÙNG giao diện với màn Lớp học / Lớp dạy (ô tìm, chip lọc trạng thái, thẻ có ảnh bìa — anh yêu cầu
+ * 16/10/2026 cho thống nhất): mỗi nhóm một thẻ, ảnh bìa theo lớp nên các nhóm cùng lớp cùng màu.
+ */
 export default function TeachingGroupsScreen() {
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
+  const { data: token } = useMediaToken();
   const [search, setSearch] = useState('');
   const q = useDeferredValue(fold(search.trim()));
+  const [status, setStatus] = useState<StatusFilter>('ALL');
 
   const query = useMyTeachingGroups();
   const pull = usePullRefresh(() => query.refetch());
 
-  const groups = useMemo(() => {
-    const list = query.data ?? [];
-    if (!q) return list;
-    return list.filter((g) => fold(`${g.group_name} ${g.class_code} ${g.class_name} ${g.assistant?.name ?? ''}`).includes(q));
-  }, [query.data, q]);
-
-  const header = (
-    <View className="gap-3 pb-1">
-      <Text className="text-[13px] text-muted">{(query.data ?? []).length} nhóm bạn đang phụ trách.</Text>
-      <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-muted px-3">
-        <Ionicons name="search" size={18} color={muted} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Tìm nhóm / lớp…"
-          placeholderTextColor={muted}
-          autoCorrect={false}
-          className="flex-1 text-base text-foreground"
-        />
-        {search ? (
-          <Pressable hitSlop={8} onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={muted} />
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
+  const all = useMemo(
+    () =>
+      [...(query.data ?? [])].sort(
+        (a, b) =>
+          (STATUS_ORDER[a.status_class] ?? 9) - (STATUS_ORDER[b.status_class] ?? 9) ||
+          new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime() ||
+          a.group_name.localeCompare(b.group_name, 'vi', { numeric: true }),
+      ),
+    [query.data],
   );
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { ALL: all.length };
+    for (const g of all) c[g.status_class] = (c[g.status_class] ?? 0) + 1;
+    return c;
+  }, [all]);
+  const list = useMemo(() => {
+    const s = status === 'ALL' ? all : all.filter((g) => g.status_class === status);
+    return q
+      ? s.filter((g) => fold(`${g.group_name} ${g.class_code} ${g.class_name} ${g.assistant?.name ?? ''} ${g.teacher?.name ?? ''}`).includes(q))
+      : s;
+  }, [all, status, q]);
+
+  // Giống màn Lớp dạy: "Tất cả" đứng đầu (lựa chọn mặc định); trạng thái không có nhóm nào thì ẩn chip
+  const statusItems = (
+    [
+      { value: 'ALL', label: 'Tất cả', count: counts.ALL ?? 0 },
+      { value: 'IN_PROGRESS', label: STATUS_META.IN_PROGRESS.label, count: counts.IN_PROGRESS ?? 0 },
+      { value: 'OPEN_REGISTRATION', label: STATUS_META.OPEN_REGISTRATION.label, count: counts.OPEN_REGISTRATION ?? 0 },
+      { value: 'CLOSED_REGISTRATION', label: STATUS_META.CLOSED_REGISTRATION.label, count: counts.CLOSED_REGISTRATION ?? 0 },
+      { value: 'ENDED', label: STATUS_META.ENDED.label, count: counts.ENDED ?? 0 },
+    ] as { value: StatusFilter; label: string; count: number }[]
+  ).filter((it) => it.value === 'ALL' || it.value === status || it.count > 0);
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Nhóm giảng dạy' }} />
+      <Stack.Screen options={{ title: 'Nhóm giảng dạy', ...menuScreenOptions }} />
+      <View className="gap-3 px-4 pb-1 pt-2">
+        <SearchBox value={search} onChange={setSearch} placeholder="Tìm nhóm, lớp, trợ giảng…" />
+        <FilterChips<StatusFilter> items={statusItems} value={status} onChange={setStatus} />
+      </View>
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (
@@ -68,52 +88,24 @@ export default function TeachingGroupsScreen() {
         />
       ) : (
         <FlashList
-          data={groups}
+          data={list}
           keyExtractor={(g: TeachingGroupItem) => g._id}
-          ListHeaderComponent={header}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-          ItemSeparatorComponent={() => <View className="h-2" />}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 }}
+          ItemSeparatorComponent={() => <View className="h-3" />}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}
-          ListEmptyComponent={<StateView icon="git-network-outline" title={q ? 'Không tìm thấy nhóm' : 'Bạn chưa phụ trách nhóm nào'} />}
-          renderItem={({ item }) => {
-            const status = STATUS_META[item.status_class] ?? STATUS_META.ENDED;
-            return (
-              <Pressable
-                onPress={() => router.push({ pathname: '/teach/groups/[id]', params: { id: item._id } })}
-                className="gap-2.5 rounded-2xl border border-border bg-surface p-3.5 active:bg-surface-muted">
-                <View className="flex-row items-center gap-2">
-                  <Badge label={status.label} tone={status.tone === 'neutral' ? 'neutral' : status.tone} />
-                  <Badge label={item.class_code} tone="brand" />
-                  <View className="flex-1" />
-                  <Ionicons name="chevron-forward" size={16} color={muted} />
-                </View>
-                <Text className="text-[15px] font-bold text-foreground" numberOfLines={2}>
-                  {item.group_name}
-                </Text>
-                <Text className="text-[13px] text-muted" numberOfLines={1}>
-                  {item.class_name}
-                  {item.teacher?.name ? ` · GV ${item.teacher.name}` : ''}
-                </Text>
-                <View className="flex-row items-center gap-2">
-                  {item.assistant?.name ? <Avatar name={item.assistant.name} size={22} /> : null}
-                  <Text className="flex-1 text-[13px] text-muted" numberOfLines={1}>
-                    Trợ giảng {item.assistant?.name || '—'}
-                  </Text>
-                  <Text className="text-[13px] font-semibold text-foreground">
-                    {item.student_ids?.length ?? 0}
-                    {item.max_students ? `/${item.max_students}` : ''} HV
-                  </Text>
-                </View>
-                {item.start_date ? (
-                  <Text className="text-[11px] text-muted">
-                    {[formatDate(item.start_date), item.end_date ? formatDate(item.end_date) : ''].filter(Boolean).join(' → ')}
-                  </Text>
-                ) : null}
-              </Pressable>
-            );
-          }}
+          ListEmptyComponent={
+            <StateView icon="people-outline" title={search ? 'Không tìm thấy nhóm' : all.length ? 'Không có nhóm nào' : 'Bạn chưa phụ trách nhóm nào'} />
+          }
+          renderItem={({ item }) => (
+            <TeachingGroupCard
+              item={item}
+              token={token?.media_token}
+              muted={muted}
+              onPress={() => router.push({ pathname: '/teach/groups/[id]', params: { id: item._id } })}
+            />
+          )}
         />
       )}
     </View>

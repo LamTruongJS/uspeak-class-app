@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Hướng dẫn đăng ký tài khoản App Store & Google Play</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 4px; color: #b62025; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding: 6px 10px; background: #b62025; color: #fff; border-radius: 6px; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14px 0 6px; color: #111827; page-break-after: avoid; }
+  p { margin: 4px 0 8px; }
+  .sub { color: #6b7280; font-size: 10pt; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; page-break-inside: avoid; }
+  th, td { border: 1px solid #d1d5db; padding: 5px 8px; vertical-align: top; text-align: left; }
+  th { background: #f3f4f6; font-weight: 600; }
+  ol, ul { margin: 4px 0 8px; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .box { border-radius: 8px; padding: 8px 12px; margin: 8px 0 10px; page-break-inside: avoid; }
+  .warn { background: #fef3c7; border: 1px solid #f59e0b; }
+  .info { background: #eff6ff; border: 1px solid #60a5fa; }
+  .ok { background: #ecfdf5; border: 1px solid #34d399; }
+  .danger { background: #fef2f2; border: 1px solid #f87171; }
+  .k { font-family: Consolas, monospace; background: #f3f4f6; padding: 0 4px; border-radius: 3px; font-size: 9.5pt; }
+  table.check { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  .check td:first-child { width: 22px; text-align: center; font-size: 12pt; }
+  .fill { display: inline-block; min-width: 220px; border-bottom: 1px dotted #6b7280; }
+  .step { font-weight: 700; color: #b62025; }
+  .pb { page-break-before: always; }
+  .small { font-size: 9pt; color: #6b7280; }
+</style>
+</head>
+<body>
+
+<h1>Hướng dẫn đăng ký tài khoản App Store &amp; Google Play</h1>
+<div class="sub">Ứng dụng: <b>Uspeak Class</b> · Đơn vị phát hành: <b>Công ty TNHH Đào Tạo Việt Anh</b> · Soạn ngày 16/10/2026</div>
+
+<div class="box info">
+  <b>Tài liệu này dành cho người đại diện công ty trực tiếp đăng ký.</b> Làm lần lượt 4 phần:
+  <ol style="margin:4px 0 0">
+    <li><b>Xin số D-U-N-S</b> của công ty (miễn phí, làm đầu tiên vì chờ lâu nhất).</li>
+    <li><b>Đăng ký Apple Developer</b> (iPhone) — 99 USD/năm.</li>
+    <li><b>Đăng ký Google Play Console</b> (Android) — 25 USD, trả một lần.</li>
+    <li><b>Bàn giao cho bộ phận kỹ thuật</b> — mục cuối có <b>bảng kiểm</b> những thứ cần gửi lại.</li>
+  </ol>
+</div>
+
+<div class="box danger">
+  <b>Nguyên tắc bảo mật:</b> KHÔNG gửi mật khẩu Apple ID / Google cho ai. Bộ phận kỹ thuật chỉ cần được
+  <b>mời vào tài khoản</b> (hướng dẫn ở từng phần) — mỗi người dùng email riêng, có thể thu hồi quyền bất cứ lúc nào.
+</div>
+
+<h2>Phần 0 — Chuẩn bị trước</h2>
+<table>
+  <tr><th style="width:36%">Cần có</th><th>Ghi chú</th></tr>
+  <tr><td><b>Email riêng cho việc phát hành app</b></td><td>Nên dùng email tên miền công ty, vd <span class="k">admin@uspeak.vn</span>. Dùng email này để tạo Apple ID và tài khoản Google bên dưới — không dùng email cá nhân, để sau này dễ bàn giao.</td></tr>
+  <tr><td><b>Số điện thoại của người đại diện</b></td><td>Nhận mã xác thực 2 lớp. Apple/Google/D&amp;B có thể gọi xác minh (thường bằng tiếng Anh).</td></tr>
+  <tr><td><b>Giấy phép kinh doanh</b> (bản scan PDF/ảnh)</td><td>Tên pháp lý, địa chỉ, mã số thuế phải khớp <b>từng chữ</b> khi điền ở mọi nơi.</td></tr>
+  <tr><td><b>Thẻ Visa / Mastercard</b> thanh toán quốc tế</td><td>Thẻ công ty hoặc cá nhân đều được. Tổng: 99 USD (Apple) + 25 USD (Google).</td></tr>
+  <tr><td><b>Website công ty</b></td><td><span class="k">https://uspeak.vn</span></td></tr>
+  <tr><td>Người đăng ký có <b>quyền đại diện pháp lý</b></td><td>Giám đốc / chủ công ty, hoặc người được uỷ quyền ký thay công ty.</td></tr>
+</table>
+
+<h3>Thông tin công ty dùng để điền (đối chiếu lại với giấy phép kinh doanh)</h3>
+<table>
+  <tr><th style="width:36%">Mục</th><th>Giá trị</th></tr>
+  <tr><td>Tên pháp lý</td><td>Công ty TNHH Đào Tạo Việt Anh — form tiếng Anh: ghi <b>tên tiếng Anh trên giấy phép</b> (nếu có), không thì ghi không dấu: <i>Cong Ty TNHH Dao Tao Viet Anh</i></td></tr>
+  <tr><td>Mã số thuế</td><td>4202026696</td></tr>
+  <tr><td>Địa chỉ trụ sở</td><td>42 Lê Thành Phương, Tây Nha Trang, Khánh Hòa, Việt Nam</td></tr>
+  <tr><td>Website</td><td>https://uspeak.vn</td></tr>
+</table>
+<p class="small">Một khi đã điền tên/địa chỉ ở bước D-U-N-S thì dùng <b>đúng y chuỗi đó</b> cho Apple và Google — lệch một chữ là bị từ chối và phải làm lại.</p>
+
+<h2>Phần 1 — Xin số D-U-N-S (miễn phí, 5 ngày – 3 tuần)</h2>
+<p>D-U-N-S là mã định danh doanh nghiệp quốc tế (9 chữ số) do Dun &amp; Bradstreet cấp. Apple và Google đều bắt buộc khi đăng ký dạng <b>tổ chức</b>. Xin một lần, dùng chung cho cả hai.</p>
+<ol>
+  <li><span class="step">Bước 1.</span> Vào <span class="k">https://developer.apple.com/enroll/duns-lookup/</span> → đăng nhập bằng Apple ID (tạo bằng email ở Phần 0, bật xác thực 2 lớp).</li>
+  <li><span class="step">Bước 2.</span> Điền: <b>Legal Entity Name</b> (tên pháp lý), <b>Headquarters Address</b> (Country: Vietnam), thông tin người liên hệ → bấm <b>Check</b>.</li>
+  <li><span class="step">Bước 3.</span>
+    <ul>
+      <li><b>Có kết quả</b> → đối chiếu tên + địa chỉ, ghi lại số D-U-N-S → xong, sang Phần 2.</li>
+      <li><b>Không có</b> → bấm <b>Submit</b> để gửi yêu cầu cấp mới → nhận email xác nhận kèm <b>mã hồ sơ</b> (lưu lại).</li>
+    </ul>
+  </li>
+  <li><span class="step">Bước 4.</span> D&amp;B có thể email/gọi điện xác minh, xin bản scan giấy phép kinh doanh → trả lời sớm.</li>
+  <li><span class="step">Bước 5.</span> Nhận số D-U-N-S qua email. <b>Chờ thêm khoảng 2 ngày làm việc</b> để Apple cập nhật rồi mới làm Phần 2.</li>
+</ol>
+<div class="box warn"><b>Lưu ý:</b> xin qua trang Apple là <b>miễn phí</b> — bỏ qua các lời mời trả phí "làm nhanh". Quá 2 tuần chưa có số thì email hỏi D&amp;B kèm mã hồ sơ.</div>
+
+<h2>Phần 2 — Apple Developer Program (iPhone) · 99 USD/năm</h2>
+<ol>
+  <li><span class="step">Bước 1.</span> Trên iPhone, cài app <b>Apple Developer</b> (App Store) → đăng nhập bằng Apple ID ở Phần 0. <i>(Hoặc dùng máy tính: <span class="k">https://developer.apple.com/programs/enroll/</span>)</i></li>
+  <li><span class="step">Bước 2.</span> Vào <b>Account → Enroll Now</b> → chọn loại <b>Organization</b> (KHÔNG chọn Individual).</li>
+  <li><span class="step">Bước 3.</span> Điền thông tin người đại diện: họ tên thật (đúng giấy tờ), chức vụ, số điện thoại, email.</li>
+  <li><span class="step">Bước 4.</span> Điền thông tin công ty: tên pháp lý, <b>số D-U-N-S</b>, website, địa chỉ — đúng y như Phần 1.</li>
+  <li><span class="step">Bước 5.</span> Đồng ý điều khoản → thanh toán <b>99 USD</b>.</li>
+  <li><span class="step">Bước 6.</span> Apple xét duyệt (vài ngày – 2 tuần), có thể gọi điện xác minh người đăng ký có quyền đại diện công ty → nhận email "Welcome to the Apple Developer Program".</li>
+</ol>
+
+<h3>Sau khi Apple duyệt — 3 việc cần làm</h3>
+<p><b>(a) Ghi lại Team ID:</b> vào <span class="k">https://developer.apple.com/account</span> → mục <b>Membership details</b> → ghi <b>Team ID</b> (10 ký tự) và <b>ngày hết hạn</b>.</p>
+<p><b>(b) Mời bộ phận kỹ thuật vào tài khoản:</b></p>
+<ol>
+  <li>Vào <span class="k">https://appstoreconnect.apple.com</span> → <b>Users and Access</b> (Người dùng và quyền truy cập) → nút <b>+</b>.</li>
+  <li>Nhập họ tên + email người phụ trách kỹ thuật → vai trò <b>Admin</b> → bấm <b>Invite</b>.</li>
+  <li>Người đó nhận email và tự chấp nhận lời mời.</li>
+</ol>
+<p><b>(c) Tạo khoá API App Store Connect</b> (để hệ thống build & nộp app tự động, không cần mật khẩu Apple ID):</p>
+<ol>
+  <li>App Store Connect → <b>Users and Access</b> → tab <b>Integrations</b> → <b>App Store Connect API</b> → <b>Team Keys</b>.</li>
+  <li>Lần đầu: bấm <b>Request Access</b> và đồng ý (chỉ Account Holder làm được).</li>
+  <li>Bấm <b>Generate API Key</b> (hoặc <b>+</b>) → đặt tên "EAS Build" → quyền <b>Admin</b> → Generate.</li>
+  <li>Ghi lại <b>Issuer ID</b> (hiện phía trên bảng) và <b>Key ID</b> của khoá vừa tạo.</li>
+  <li>Bấm <b>Download</b> để tải file <span class="k">AuthKey_XXXXXXXX.p8</span> — <b>chỉ tải được 1 lần</b>, cất cẩn thận.</li>
+</ol>
+<div class="box warn">Mục (c) có thể bỏ qua nếu đã làm (b): người phụ trách kỹ thuật được mời với vai trò Admin có thể tự tạo khoá API. Account Holder chỉ cần làm bước <b>Request Access</b> một lần.</div>
+
+<h2>Phần 3 — Google Play Console (Android) · 25 USD một lần</h2>
+<ol>
+  <li><span class="step">Bước 1.</span> Tạo tài khoản Google bằng email ở Phần 0 (hoặc đăng nhập nếu đã có), bật xác minh 2 bước.</li>
+  <li><span class="step">Bước 2.</span> Vào <span class="k">https://play.google.com/console/signup</span>.</li>
+  <li><span class="step">Bước 3.</span> Chọn loại tài khoản <b>Tổ chức / Doanh nghiệp</b> (KHÔNG chọn Cá nhân — tài khoản cá nhân bị bắt cho ít nhất 12 người dùng thử liên tục 14 ngày mới được phát hành).</li>
+  <li><span class="step">Bước 4.</span> Điền:
+    <ul>
+      <li>Thông tin tổ chức: tên, địa chỉ, <b>số D-U-N-S</b>, website — đúng y Phần 1.</li>
+      <li><b>Tên nhà phát triển</b> hiển thị trên Google Play: <i>Uspeak</i> hoặc tên công ty.</li>
+      <li>Email + số điện thoại liên hệ (Google gửi mã xác minh; email liên hệ sẽ hiện <b>công khai</b> trên trang app — nên dùng email hỗ trợ chung).</li>
+    </ul>
+  </li>
+  <li><span class="step">Bước 5.</span> Thanh toán <b>25 USD</b>.</li>
+  <li><span class="step">Bước 6.</span> Hoàn tất xác minh danh tính &amp; tổ chức: Google có thể yêu cầu tải lên giấy phép kinh doanh / giấy tờ người đại diện. Thời gian vài ngày.</li>
+</ol>
+
+<h3>Sau khi Google duyệt — 2 việc cần làm</h3>
+<p><b>(a) Ghi lại Developer account ID:</b> Play Console → <b>Cài đặt (Settings) → Chi tiết tài khoản nhà phát triển</b> — dãy số ID tài khoản (cũng thấy trên thanh địa chỉ: <span class="k">.../developers/<b>XXXXXXXX</b>/...</span>).</p>
+<p><b>(b) Mời bộ phận kỹ thuật:</b></p>
+<ol>
+  <li>Play Console → <b>Người dùng và quyền (Users and permissions)</b> → <b>Mời người dùng mới</b>.</li>
+  <li>Nhập email người phụ trách kỹ thuật → tab <b>Quyền tài khoản</b> → tick <b>Admin (tất cả quyền)</b> → <b>Mời người dùng</b>.</li>
+</ol>
+<div class="box info">Phần còn lại (tạo app trên Play Console, khoá tải bản build, tài khoản dịch vụ để nộp tự động) bộ phận kỹ thuật tự làm sau khi được mời.</div>
+
+<h2>Phần 4 — Bàn giao cho bộ phận kỹ thuật</h2>
+<p>Email người phụ trách kỹ thuật cần được mời: <span class="fill">&nbsp;</span></p>
+
+<table class="check">
+  <tr><th></th><th style="width:42%">Cần gửi lại</th><th>Lấy ở đâu</th></tr>
+  <tr><td>☐</td><td><b>Số D-U-N-S</b></td><td>Email của D&amp;B / trang tra cứu Apple (Phần 1)</td></tr>
+  <tr><td>☐</td><td>Email (Apple ID) dùng làm chủ tài khoản Apple</td><td>Chỉ gửi <b>email</b>, không gửi mật khẩu</td></tr>
+  <tr><td>☐</td><td><b>Apple Team ID</b> + ngày hết hạn gói</td><td>developer.apple.com/account → Membership details</td></tr>
+  <tr><td>☐</td><td>Đã <b>mời kỹ thuật vào App Store Connect</b> (Admin)</td><td>Phần 2 (b)</td></tr>
+  <tr><td>☐</td><td>Đã bấm <b>Request Access</b> cho App Store Connect API</td><td>Phần 2 (c) bước 2</td></tr>
+  <tr><td>☐</td><td><i>(Nếu tự tạo khoá)</i> <b>Issuer ID</b>, <b>Key ID</b> + file <b>AuthKey_….p8</b></td><td>Phần 2 (c) — gửi qua kênh riêng tư (không đăng nhóm chat chung)</td></tr>
+  <tr><td>☐</td><td>Email chủ tài khoản Google Play</td><td>Chỉ gửi <b>email</b></td></tr>
+  <tr><td>☐</td><td><b>Google Play Developer account ID</b></td><td>Play Console → Settings (Phần 3 a)</td></tr>
+  <tr><td>☐</td><td>Đã <b>mời kỹ thuật vào Play Console</b> (Admin)</td><td>Phần 3 (b)</td></tr>
+  <tr><td>☐</td><td>Hoá đơn / biên nhận thanh toán Apple + Google</td><td>Email xác nhận thanh toán (lưu kế toán)</td></tr>
+</table>
+
+<h3>Thông tin để đăng app lên cửa hàng (chuẩn bị song song)</h3>
+<table>
+  <tr><th style="width:42%">Mục</th><th>Ghi chú</th></tr>
+  <tr><td>Email hỗ trợ khách hàng (hiện công khai)</td><td>Vd <span class="k">support@uspeak.vn</span></td></tr>
+  <tr><td>Số điện thoại / hotline hỗ trợ</td><td>&nbsp;</td></tr>
+  <tr><td>Link chính sách bảo mật (công khai)</td><td><span class="k">https://uspeak.vn/chinh-sach-bao-mat</span></td></tr>
+  <tr><td><b>Tài khoản học viên demo</b> cho người duyệt của Apple</td><td>Tài khoản thử có sẵn lớp, bài tập, chat — <b>không</b> dùng tài khoản học viên thật. Bộ phận kỹ thuật có thể tạo giúp.</td></tr>
+  <tr><td>Mô tả app ngắn + dài, ảnh chụp màn hình</td><td>Bộ phận kỹ thuật/marketing chuẩn bị</td></tr>
+</table>
+
+<h2>Thời gian &amp; chi phí dự kiến</h2>
+<table>
+  <tr><th>Việc</th><th>Thời gian</th><th>Chi phí</th></tr>
+  <tr><td>Số D-U-N-S</td><td>5 ngày – 3 tuần</td><td>Miễn phí</td></tr>
+  <tr><td>Apple Developer (Organization)</td><td>Vài ngày – 2 tuần sau khi có D-U-N-S</td><td>99 USD / năm (gia hạn hằng năm, quá hạn app bị gỡ)</td></tr>
+  <tr><td>Google Play Console (Tổ chức)</td><td>Vài ngày</td><td>25 USD, một lần</td></tr>
+  <tr><td>Build, chạy thử nội bộ, gửi duyệt</td><td>1 – 2 tuần (kỹ thuật làm)</td><td>—</td></tr>
+</table>
+
+<div class="box ok"><b>Tóm lại:</b> người đại diện chỉ cần (1) xin D-U-N-S, (2) đăng ký + thanh toán Apple và Google dạng tổ chức, (3) mời bộ phận kỹ thuật vào cả hai tài khoản với quyền Admin và gửi lại các mục trong bảng kiểm. Phần build và nộp app bộ phận kỹ thuật làm tiếp.</div>
+
+<p class="small">Giao diện và tên nút của Apple/Google có thể thay đổi theo thời gian; nếu không thấy đúng tên nút, tìm mục tương đương hoặc liên hệ bộ phận kỹ thuật.</p>
+</body>
+</html>

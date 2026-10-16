@@ -42,10 +42,16 @@ export const SUBMISSION_FILTERS: { value: string; label: string }[] = [
   { value: 'timeout', label: 'Quá hạn' },
 ];
 
-export function useClassSubmissionList(classId: string, params: { status: string; search: string; assignmentId: string }) {
+export function useClassSubmissionList(
+  classId: string,
+  params: { status: string; search: string; assignmentId: string },
+  /** Chỉ bài của các học viên này (xem theo nhóm); undefined = cả lớp */
+  studentIds?: string[],
+  enabled = true,
+) {
   return useInfiniteQuery({
-    queryKey: ['assignments', 'class-submissions', classId, params],
-    enabled: !!classId,
+    queryKey: ['assignments', 'class-submissions', classId, params, studentIds?.join(',') ?? 'all'],
+    enabled: enabled && !!classId,
     initialPageParam: 1,
     staleTime: 30_000,
     queryFn: async ({ pageParam }) =>
@@ -59,6 +65,7 @@ export function useClassSubmissionList(classId: string, params: { status: string
               status: params.status === 'ALL' ? undefined : params.status,
               search: params.search || undefined,
               assignment_id: params.assignmentId === 'ALL' ? undefined : params.assignmentId,
+              student_ids: studentIds?.length ? studentIds.join(',') : undefined,
               sort_by: 'submitted_at',
               sort_order: 'desc',
             },

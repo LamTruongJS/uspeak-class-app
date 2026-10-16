@@ -23,6 +23,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 const STATUS_ICON = {
   not_started: 'time-outline',
@@ -85,7 +86,7 @@ export default function InputSurveysScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Khảo sát đầu vào' }} />
+      <Stack.Screen options={{ title: 'Khảo sát đầu vào', ...menuScreenOptions }} />
       <FlashList
         data={items}
         keyExtractor={(s: InputSurvey) => s._id}

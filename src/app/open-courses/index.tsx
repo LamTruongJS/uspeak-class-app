@@ -21,6 +21,7 @@ import { getErrorMessage } from '@/lib/api/client';
 import { useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Khoá học mở đăng ký — bản mobile của web /open-courses: tìm, lọc theo khoá học (kèm số lớp), Ưu đãi /
@@ -148,7 +149,7 @@ export default function OpenCoursesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Khoá học mở đăng ký' }} />
+      <Stack.Screen options={{ title: 'Khoá học mở đăng ký', ...menuScreenOptions }} />
       {query.isLoading ? (
         <LoadingView />
       ) : query.isError ? (

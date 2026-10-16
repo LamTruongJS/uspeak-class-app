@@ -13,6 +13,7 @@ import { formatDateTime } from '@/lib/format';
 import { resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { menuScreenOptions } from '@/features/navigation/app-menu';
 
 /**
  * Đang trực tuyến — bản mobile của web /online-users: ai đang online, ai offline từ lúc nào.
@@ -72,7 +73,7 @@ export default function OnlineUsersScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: 'Đang trực tuyến' }} />
+      <Stack.Screen options={{ title: 'Đang trực tuyến', ...menuScreenOptions }} />
       <FlashList
         key={tab}
         data={query.data?.data ?? []}

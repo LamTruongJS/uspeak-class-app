@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, FlatList, Keyboard, Platform, Pressable, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { ActivityIndicator, AppState, Keyboard, Platform, Pressable, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/ui/toast';
@@ -9,7 +10,7 @@ import { useActionSheet } from '@/components/ui/action-sheet';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { activeRoom } from '@/features/chat/active-room';
-import { chatApi, patchRoom, upsertMessage, useChatPermissions, useChatRoom, useRoomMembers, useRoomMessages } from '@/features/chat/api';
+import { chatApi, patchRoom, trimRoomMessages, upsertMessage, useChatPermissions, useChatRoom, useRoomMembers, useRoomMessages } from '@/features/chat/api';
 import { Composer, type PickedAsset, type PickedDoc } from '@/features/chat/composer';
 import { getDraft, saveDraft } from '@/features/chat/drafts';
 import { roomTitle } from '@/features/chat/format';
@@ -83,7 +84,7 @@ export default function ChatRoomScreen() {
   const [divider, setDivider] = useState<string | null>(null);
   const lastTypingEmit = useRef(0);
   const viewing = useRef(false);
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlashListRef<ChatMessage>>(null);
 
   const setReplyTo = (m: ChatMessage | null) => {
     setReplyToState(m);
@@ -118,6 +119,54 @@ export default function ChatRoomScreen() {
     return [...pending.filter((p) => keep.has(p._id)), ...server];
   }, [server, pending]);
   const newestServerId = server[0]?._id;
+  /**
+   * FlashList v2 không có `inverted` → danh sách hiển thị theo thời gian (CŨ → MỚI, tin mới nhất ở cuối),
+   * bắt đầu vẽ từ đáy (`startRenderingFromBottom`), cuộn lên đầu thì tải trang cũ hơn (`onStartReached`).
+   * `data` (mới → cũ) vẫn giữ cho các chỗ tìm tin / đếm chưa đọc.
+   */
+  const listData = useMemo(() => [...data].reverse(), [data]);
+  // Bản mới nhất của danh sách cho các lần cuộn chạy sau setTimeout (closure cũ giữ danh sách cũ → sai index)
+  const listDataRef = useRef(listData);
+  useEffect(() => {
+    listDataRef.current = listData;
+  }, [listData]);
+
+  /**
+   * Cuộn tới 1 tin cho TRÚNG (tin ghim, trích dẫn, vạch chưa đọc, kết quả tìm).
+   *
+   * `scrollToIndex` của FlashList v2 tự đi nhiều chặng tới tin chưa đo (vẽ + đo dần rồi chỉnh), nên chỉ cần
+   * gọi 1 lần rồi chỉnh thêm 2 lần sau đó vì ảnh tải xong làm đổi chiều cao. Người dùng tự cuộn trong lúc
+   * đó thì thôi chỉnh (`jumpToken` bị xoá ở onScrollBeginDrag) — không giật màn hình khỏi tay họ.
+   */
+  const jumpToken = useRef<string | null>(null);
+  const [seeking, setSeeking] = useState(false);
+  const indexOf = (id: string) => listDataRef.current.findIndex((m) => m._id === id);
+  const scrollToMessage = async (messageId: string, highlight = false) => {
+    const token = messageId + ':' + Date.now();
+    jumpToken.current = token;
+    setSeeking(true);
+    // Đợi 1 nhịp để FlashList nhận danh sách mới (trường hợp vừa tải thêm trang cũ)
+    await new Promise((r) => setTimeout(r, 30));
+    const index = indexOf(messageId);
+    if (index >= 0) await listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: false });
+    setSeeking(false);
+    if (index < 0 || jumpToken.current !== token) return;
+    // Tô sáng lúc ĐÃ tới nơi
+    if (highlight) {
+      setHighlightId(messageId);
+      setTimeout(() => setHighlightId((h) => (h === messageId ? null : h)), 2600);
+    }
+    [250, 700].forEach((delay) =>
+      setTimeout(() => {
+        if (jumpToken.current !== token) return;
+        const i = indexOf(messageId);
+        if (i >= 0) void listRef.current?.scrollToIndex({ index: i, viewPosition: 0.5, animated: false });
+      }, delay),
+    );
+    setTimeout(() => {
+      if (jumpToken.current === token) jumpToken.current = null;
+    }, 800);
+  };
 
   // ── Vạch "N tin chưa đọc": tin chưa đọc cũ nhất (đếm như server: tin người khác, bỏ tin hệ thống) ──
   const dividerDone = useRef(false);
@@ -134,7 +183,9 @@ export default function ChatRoomScreen() {
     }
     if (index < 0) return;
     setDivider(server[index]._id);
-    if (index > 6) setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: false }), 50);
+    if (index > 6) void scrollToMessage(server[index]._id);
+    // chỉ chạy 1 lần lúc mở phòng (dividerDone) — scrollToMessage đọc ref nên không cần là dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.data, server, openUnread, myId]);
 
   // ── Đang xem phòng = focus + foreground ──
@@ -177,6 +228,9 @@ export default function ChatRoomScreen() {
     prevNewest.current = newestServerId;
     if (!scrolledUp) markRead();
   }, [newestServerId, scrolledUp, markRead, server, myId]);
+
+  // Rời phòng (đóng màn) → cache chỉ giữ trang mới nhất, vào lại không phải tải lại mọi trang cũ
+  useEffect(() => () => trimRoomMessages(roomId), [roomId]);
 
   // ── Đã xem: con trỏ đã đọc của người khác (chỉ phòng nhỏ) ──
   const memberCount = room?.member_count ?? members.data?.length ?? 0;
@@ -237,7 +291,6 @@ export default function ChatRoomScreen() {
       if (!res.hasNextPage && !res.data?.pages.flatMap((p) => p.data).some((m) => m._id === messageId)) break;
       const all = res.data?.pages.flatMap((p) => p.data) ?? [];
       index = all.findIndex((m) => m._id === messageId);
-      if (index >= 0) index += pending.length;
       pages += 1;
     }
     setJumping(false);
@@ -245,9 +298,7 @@ export default function ChatRoomScreen() {
       showToast('error', 'Không tìm thấy tin', 'Tin nhắn này đã quá cũ hoặc đã bị xoá.');
       return;
     }
-    setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }), 60);
-    setHighlightId(messageId);
-    setTimeout(() => setHighlightId((h) => (h === messageId ? null : h)), 1800);
+    void scrollToMessage(messageId, true);
   };
 
   // ── Gửi tin ──
@@ -365,7 +416,8 @@ export default function ChatRoomScreen() {
 
   const afterSend = () => {
     setReplyTo(null);
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    jumpToken.current = null;
+    void listRef.current?.scrollToEnd({ animated: true });
   };
 
   const sendText = (content: string) => {
@@ -541,7 +593,9 @@ export default function ChatRoomScreen() {
   };
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const up = e.nativeEvent.contentOffset.y > SCROLLED_UP_PX; // list đảo ngược: 0 = tin mới nhất
+    // Tin mới nhất ở cuối danh sách → "đang đọc tin cũ" = cách đáy quá ngưỡng
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const up = contentSize.height - layoutMeasurement.height - contentOffset.y > SCROLLED_UP_PX;
     if (up !== scrolledUp) {
       setScrolledUp(up);
       if (!up) {
@@ -596,6 +650,8 @@ export default function ChatRoomScreen() {
         options={{
           // Kiểu Messenger: ảnh phòng + tên canh trái, bấm vào mở Thông tin phòng
           headerTitleAlign: 'left',
+          // Màn này tự vẽ ô tiêu đề (không qua HeaderRow) nên cần nút back của hệ thống
+          headerBackVisible: true,
           headerTitle: () => (
             <Pressable
               className="flex-row items-center gap-2.5 active:opacity-70"
@@ -657,40 +713,41 @@ export default function ChatRoomScreen() {
           </View>
         ) : (
           <View className="flex-1">
-            <FlatList
+            <FlashList
               ref={listRef}
-              inverted
-              data={data}
+              data={listData}
               keyExtractor={(m) => m._id}
-              contentContainerClassName="px-3 py-2"
+              // Mỗi loại bong bóng 1 nhóm tái sử dụng — ô tin chữ không bị đem đi vẽ ảnh/thẻ (đổi cả cây view)
+              getItemType={messageKind}
+              extraData={[highlightId, divider, seenLabel, myLatest?._id].join('|')}
+              // Đang chờ cuộn tới tin xa thì ẩn danh sách (kèm "Đang tìm tin…") — khỏi chớp qua các đoạn dọc đường
+              style={seeking ? { opacity: 0 } : undefined}
+              contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
               // Android: 'interactive' giành quyền điều khiển hiệu ứng bàn phím (WindowInsetsAnimation) và
               // kẹt giữa chừng → bàn phím mở nhưng bị vẽ ra ngoài màn hình. Chỉ iOS dùng kéo-để-ẩn.
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               keyboardShouldPersistTaps="handled"
               onScroll={onScroll}
+              onScrollBeginDrag={() => {
+                jumpToken.current = null;
+              }}
               scrollEventThrottle={64}
-              // Chỉ giữ ~5 màn tin quanh chỗ đang xem (mặc định 21 màn) — mỗi bong bóng có cử chỉ vuốt,
-              // ảnh, cảm xúc… giữ quá nhiều thì cuộn tin cũ bị khựng và tốn RAM.
-              windowSize={9}
-              initialNumToRender={14}
-              maxToRenderPerBatch={8}
-              updateCellsBatchingPeriod={40}
-              // Đang đọc tin cũ mà tin mới tới thì giữ nguyên chỗ đang đọc; đang ở cuối thì tự trôi theo.
-              maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 80 }}
-              onEndReachedThreshold={0.3}
-              onEndReached={() => {
+              maintainVisibleContentPosition={{
+                // Vẽ từ đáy: phòng ít tin thì tin nằm sát ô nhập như mọi app chat
+                startRenderingFromBottom: true,
+                // Đang ở gần đáy (trong 1/4 màn) mà có tin mới → tự trôi xuống; đang đọc tin cũ thì giữ nguyên chỗ
+                autoscrollToBottomThreshold: 0.25,
+              }}
+              onStartReachedThreshold={0.5}
+              onStartReached={() => {
                 if (messages.hasNextPage && !messages.isFetchingNextPage) void messages.fetchNextPage();
               }}
-              onScrollToIndexFailed={(info) => {
-                listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
-                setTimeout(() => listRef.current?.scrollToIndex({ index: info.index, viewPosition: 0.5, animated: false }), 80);
-              }}
-              ListFooterComponent={messages.isFetchingNextPage ? <ActivityIndicator color={brand} className="py-3" /> : null}
+              ListHeaderComponent={messages.isFetchingNextPage ? <ActivityIndicator color={brand} className="py-3" /> : null}
               renderItem={({ item, index }) => (
                 <MessageItem
                   message={item}
-                  older={data[index + 1]}
-                  newer={data[index - 1]}
+                  older={listData[index - 1]}
+                  newer={listData[index + 1]}
                   myId={myId}
                   isDirect={isDirect}
                   onLongPress={setActionFor}
@@ -707,14 +764,13 @@ export default function ChatRoomScreen() {
                 />
               )}
             />
-            {/* Phòng trống: vẽ NGOÀI danh sách — FlatList inverted trên Android lật cả 2 chiều (xoay 180°),
-                lật bù 1 chiều như trước thì chữ bị ngược như soi gương. */}
+            {/* Phòng trống: vẽ ngoài danh sách, giữa màn */}
             {data.length === 0 && !messages.isFetching ? (
               <View pointerEvents="none" className="absolute inset-0 justify-center">
                 <StateView icon="chatbubble-ellipses-outline" title="Chưa có tin nhắn" description="Hãy gửi lời chào đầu tiên 👋" />
               </View>
             ) : null}
-            {jumping ? (
+            {jumping || seeking ? (
               <View className="absolute left-0 right-0 top-3 items-center" pointerEvents="none">
                 <View className="flex-row items-center gap-2 rounded-full bg-surface px-3.5 py-2 shadow-sm">
                   <ActivityIndicator size="small" color={brand} />
@@ -724,7 +780,7 @@ export default function ChatRoomScreen() {
             ) : null}
             {scrolledUp ? (
               <Pressable
-                onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                onPress={() => void listRef.current?.scrollToEnd({ animated: true })}
                 accessibilityLabel="Xuống tin mới nhất"
                 className="absolute bottom-3 right-4 flex-row items-center gap-1 rounded-full bg-brand px-3 py-2 active:opacity-80">
                 <Ionicons name="arrow-down" size={16} color={onBrand} />
@@ -783,6 +839,28 @@ export default function ChatRoomScreen() {
       />
     </View>
   );
+}
+
+/** Nhóm tái sử dụng ô của FlashList — gần với cấu trúc view của bong bóng (xem MessageItem). */
+function messageKind(m: ChatMessage): string {
+  if (m.recalled_by || m.deleted_by || m.is_deleted) return 'removed';
+  switch (m.message_type) {
+    case 'system':
+    case 'image':
+    case 'video':
+    case 'sticker':
+    case 'voice':
+    case 'file':
+      return m.message_type;
+    case 'poll':
+    case 'announcement':
+    case 'assignment':
+    case 'class_reminder':
+    case 'activity':
+      return 'card';
+    default:
+      return 'text';
+  }
 }
 
 /**

@@ -48,6 +48,15 @@ const ALL: RoleCode[] = ['AD', 'TE', 'TA', 'TG', 'ST'];
 const STAFF: RoleCode[] = ['AD', 'TE', 'TA', 'TG'];
 const TEACHING: RoleCode[] = ['AD', 'TE', 'TA'];
 
+/** Tên vai trò hiển thị — dùng chung cho màn Tài khoản và menu tổng. */
+export const ROLE_NAMES: Record<string, string> = {
+  AD: 'Quản trị viên',
+  TE: 'Giáo viên',
+  TA: 'Trợ giảng',
+  TG: 'Nhận xét bài',
+  ST: 'Học viên',
+};
+
 export const GROUP_LABELS: Record<FeatureGroup, string> = {
   learn: 'Học tập',
   practice: 'Luyện tập',
@@ -79,17 +88,17 @@ export const FEATURES: AppFeature[] = [
 
   // ── Cộng đồng ───────────────────────────────────────────────────────
   { key: 'chat', label: 'Chat', icon: 'chatbubbles-outline', group: 'community', roles: ALL, phase: 1, status: 'ready', route: '/chat', permission: 'CHAT_VIEW' },
-  { key: 'forum', label: 'Diễn đàn', icon: 'people-outline', group: 'community', roles: ALL, phase: 2, status: 'ready', route: '/forum', permission: 'FORUM_VIEW' },
+  { key: 'forum', label: 'Diễn đàn', icon: 'newspaper-outline', group: 'community', roles: ALL, phase: 2, status: 'ready', route: '/forum', permission: 'FORUM_VIEW' },
   { key: 'feedback', label: 'Góp ý / Báo lỗi', icon: 'bug-outline', group: 'community', roles: ALL, phase: 2, status: 'ready', route: '/feedback', permission: 'FEEDBACK_SUBMIT' },
 
   // ── Giảng dạy (GV / TA) ─────────────────────────────────────────────
   { key: 'dashboard', label: 'Tổng quan giảng dạy', icon: 'grid-outline', group: 'teach', roles: TEACHING, phase: 3, status: 'ready', route: '/', permission: 'DASHBOARD_VIEW' },
   { key: 'classes', label: 'Lớp học', icon: 'school-outline', group: 'teach', roles: TEACHING, phase: 3, status: 'ready', route: '/classes', permission: 'CLASS_VIEW' },
-  { key: 'teaching-groups', label: 'Nhóm giảng dạy', icon: 'git-network-outline', group: 'teach', roles: TEACHING, phase: 3, status: 'ready', route: '/teach/groups', permission: 'TEACHING_GROUPS_VIEW' },
+  { key: 'teaching-groups', label: 'Nhóm giảng dạy', icon: 'people-outline', group: 'teach', roles: TEACHING, phase: 3, status: 'ready', route: '/teach/groups', permission: 'TEACHING_GROUPS_VIEW' },
   { key: 'gradebook', label: 'Bảng điểm', icon: 'stats-chart-outline', group: 'teach', roles: TEACHING, phase: 3, status: 'ready', route: '/grading/gradebook', permission: 'GRADEBOOK_VIEW' },
   { key: 'online-users', label: 'Đang trực tuyến', icon: 'radio-outline', group: 'teach', roles: ['AD', 'TE'], phase: 3, status: 'ready', route: '/teach/online-users', permission: 'ONLINE_USERS_VIEW' },
   { key: 'pro-tracking', label: 'Theo dõi học viên PRO', icon: 'trending-up-outline', group: 'teach', roles: ['AD', 'TE'], phase: 3, status: 'ready', route: '/teach/pro', permission: 'PRO_TRACKING_VIEW' },
-  { key: 'reports', label: 'Thống kê', icon: 'bar-chart-outline', group: 'teach', roles: TEACHING, phase: 4, status: 'web', webPath: '/reports', permission: 'REPORT_STATISTICS_VIEW' },
+  { key: 'reports', label: 'Thống kê', icon: 'bar-chart-outline', group: 'teach', roles: TEACHING, phase: 4, status: 'ready', route: '/grading/stats', permission: 'REPORT_STATISTICS_VIEW' },
 
   // ── Nhận xét bài ────────────────────────────────────────────────────
   { key: 'grading', label: 'Nhận xét bài', icon: 'create-outline', group: 'grading', roles: STAFF, phase: 3, status: 'ready', route: '/assignments', permission: 'GRADING_QUEUE_VIEW' },
@@ -99,19 +108,38 @@ export const FEATURES: AppFeature[] = [
   { key: 'grading-reviews', label: 'Review bài nhận xét', icon: 'checkmark-done-outline', group: 'grading', roles: ['AD', 'TE'], phase: 3, status: 'ready', route: '/grading/reviews', permission: 'REVIEW_QUEUE_VIEW' },
   { key: 'payment-requests', label: 'Yêu cầu thanh toán', icon: 'wallet-outline', group: 'grading', roles: ['TG', 'TE', 'TA'], phase: 3, status: 'ready', route: '/grading/payment-requests', permission: 'PAYMENT_REQUEST_VIEW' },
   { key: 'input-surveys', label: 'Khảo sát đầu vào', icon: 'clipboard-outline', group: 'grading', roles: STAFF, phase: 2, status: 'ready', route: '/surveys', permission: 'INPUT_SURVEY_VIEW' },
-  { key: 'grading-management', label: 'Quản lý chấm bài', icon: 'briefcase-outline', group: 'grading', roles: ['AD', 'TE'], phase: 4, status: 'web', webPath: '/assignments/grading-management', permission: 'GRADING_MANAGEMENT_VIEW' },
+  { key: 'grading-management', label: 'Quản lý chấm bài', icon: 'briefcase-outline', group: 'grading', roles: ['AD', 'TE'], phase: 4, status: 'ready', route: '/grading/management', permission: 'GRADING_MANAGEMENT_VIEW' },
   { key: 'rubric-templates', label: 'Template Rubric', icon: 'list-outline', group: 'grading', roles: ['AD', 'TE'], phase: 4, status: 'web', webPath: '/assignments/templates', permission: 'RUBRIC_MANAGE' },
 
   // ── Quản trị ────────────────────────────────────────────────────────
   { key: 'permissions', label: 'Phân quyền hệ thống', icon: 'shield-checkmark-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'web', webPath: '/permissions', permission: 'PERMISSION_MANAGE' },
-  { key: 'payment-settings', label: 'Cài đặt thanh toán', icon: 'card-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'web', webPath: '/payment-settings', permission: 'PAYMENT_SETTINGS_MANAGE' },
-  { key: 'admin-feedback', label: 'Quản lý góp ý', icon: 'mail-unread-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'web', webPath: '/admin/feedback', permission: 'FEEDBACK_MANAGE' },
+  { key: 'payment-settings', label: 'Cài đặt thanh toán', icon: 'card-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/payment-settings', permission: 'PAYMENT_SETTINGS_MANAGE' },
+  { key: 'admin-feedback', label: 'Quản lý góp ý', icon: 'mail-unread-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/admin/feedback', permission: 'FEEDBACK_MANAGE' },
   { key: 'certificate-editor', label: 'Editor mẫu chứng chỉ', icon: 'brush-outline', group: 'admin', roles: ['AD', 'TE'], phase: 4, status: 'web', webPath: '/certificate-template-editor', permission: 'CERTIFICATE_TEMPLATE_EDITOR_VIEW' },
 
   // ── Tài khoản ───────────────────────────────────────────────────────
   { key: 'account', label: 'Thông tin tài khoản', icon: 'person-circle-outline', group: 'account', roles: ALL, phase: 1, status: 'ready', route: '/account' },
   { key: 'policies', label: 'Điều khoản & chính sách', icon: 'document-lock-outline', group: 'account', roles: ALL, phase: 1, status: 'ready', route: '/policies' },
 ];
+
+/** 5 đường dẫn nằm sẵn trên thanh tab — những màn này đã có thanh của navigator. */
+const TAB_PATHS = new Set(['/', '/classes', '/chat', '/assignments', '/account']);
+
+/**
+ * Tính năng ứng với đường dẫn đang mở, CHỈ tính màn mở từ menu (không phải tab, đã làm trong app).
+ * Dùng cho thanh tab nổi ở màn Stack: màn không có trên thanh thì thay vào ô cuối.
+ * So khớp đúng đường dẫn, không tính màn con (vd `/policies/dieu-khoan`) — vào sâu rồi thì để màn
+ * hình trống cho nội dung.
+ */
+export function featureForPath(pathname?: string): AppFeature | undefined {
+  if (!pathname || TAB_PATHS.has(pathname)) return undefined;
+  return FEATURES.find((f) => f.status === 'ready' && f.route?.split('?')[0] === pathname);
+}
+
+/** Màn Stack này có phải màn mở từ menu không — `name` là tên route của expo-router. */
+export function isMenuRoute(routeName: string) {
+  return !!featureForPath('/' + routeName.replace(/\/index$/, ''));
+}
 
 export function featuresForRole(role: RoleCode | undefined): AppFeature[] {
   const r = role || 'ST';
@@ -129,6 +157,58 @@ export function featuresForUser(role: RoleCode | undefined, codes: string[] | nu
   const byRole = featuresForRole(role);
   if (!codes) return byRole;
   return byRole.filter((f) => !f.permission || codes.includes(f.permission));
+}
+
+/** 4 tab (ngoài Tài khoản) của navigator `(tabs)`. */
+export type TabName = 'index' | 'classes' | 'chat' | 'assignments';
+const TAB_NAMES = new Set<string>(['index', 'classes', 'chat', 'assignments']);
+
+/**
+ * 4 ô MẶC ĐỊNH của thanh tab dưới theo vai trò (ô thứ 5 luôn là ảnh đại diện → Tài khoản), chép từ
+ * `ROLE_NAV` của MobileFooterNav (PWA class-fe) cho 2 bản giống nhau. Mỗi ô là tên tab của `(tabs)`
+ * hoặc `key` một tính năng — tính năng thì bấm vào mở màn Stack, thanh tab vẫn hiện và tô đúng ô đó.
+ *
+ * Khác PWA 2 chỗ:
+ * - Học viên giữ ô Bài tập thay cho Lịch trình (anh chốt 16/10/2026) — Lịch trình vào từ menu.
+ * - TG: PWA để "Review" đầu thanh nhưng menu web không cho TG vào Review (chỉ AD/TE), nên thay bằng
+ *   hàng chờ Nhận xét bài — cũng là trang web mở đầu tiên của TG.
+ */
+const ROLE_TAB_BAR: Record<string, string[]> = {
+  ST: ['index', 'classes', 'chat', 'assignments'],
+  TE: ['classes', 'chat', 'assignments', 'grading-reviews'],
+  TA: ['index', 'teaching-groups', 'chat', 'assignments'],
+  TG: ['assignments', 'regrades', 'grading-history', 'payment-requests'],
+  AD: ['index', 'classes', 'chat', 'teaching-groups'],
+};
+
+/**
+ * Tab mở ra đầu tiên khi vào app — theo `getDefaultRouteByRole` của web, phải là 1 tab CÓ trên thanh.
+ * TA vào Trang chủ (trang chủ trợ giảng) như admin/học viên — anh chốt 16/10/2026.
+ */
+const ROLE_HOME_TAB: Record<string, TabName> = { ST: 'index', TE: 'classes', TA: 'index', TG: 'assignments', AD: 'index' };
+
+export function homeTabForRole(role: RoleCode | undefined): TabName {
+  return ROLE_HOME_TAB[role || 'ST'] ?? 'index';
+}
+
+export interface TabBarSlot {
+  key: string;
+  tab?: TabName;
+  feature?: AppFeature;
+}
+
+/**
+ * Các ô của thanh tab cho người này. Ô là tính năng mà tài khoản không có quyền thì bỏ (giống menu);
+ * `codes` chưa tải xong thì giữ nguyên, như `featuresForUser`.
+ */
+export function tabBarSlots(role: RoleCode | undefined, codes: string[] | null | undefined): TabBarSlot[] {
+  const keys = ROLE_TAB_BAR[role || 'ST'] ?? ROLE_TAB_BAR.ST;
+  return keys.flatMap((key): TabBarSlot[] => {
+    if (TAB_NAMES.has(key)) return [{ key, tab: key as TabName }];
+    const feature = FEATURES.find((f) => f.key === key && f.status === 'ready');
+    if (!feature || (codes && feature.permission && !codes.includes(feature.permission))) return [];
+    return [{ key, feature }];
+  });
 }
 
 /** Nhân viên (GV/TA/TG/AD) — ẩn các mục chỉ dành cho học viên trên tab. */

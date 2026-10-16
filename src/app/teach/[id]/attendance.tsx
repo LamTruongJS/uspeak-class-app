@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { useActionSheet } from '@/components/ui/action-sheet';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { SessionCard } from '@/features/classes/session-card';
 import {
+  scopeSession,
   sessionTitle,
   useAbsenceReasons,
   useClassSessions,
@@ -22,6 +23,7 @@ import {
   type SessionForm,
 } from '@/features/classes/sessions-api';
 import { useStaffClasses, type StaffClassItem } from '@/features/classes/staff-api';
+import { useGroupScope } from '@/features/classes/teach-api';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDate, formatTime } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
@@ -31,9 +33,13 @@ import { useThemeColor } from '@/theme/use-theme-color';
  * Điểm danh của lớp (nhân sự) — làm NGAY TRONG APP như tab Điểm danh của web (AttendanceTab):
  * mở buổi → đổi Có mặt ⇄ Vắng từng người, ghi lý do vắng; nút + tạo buổi mới (ngày giờ, nội dung,
  * phòng Zoom, giáo viên); "Sửa / xoá buổi" trong từng buổi. Hiện cả buổi sắp diễn ra.
+ *
+ * `?group=<id>` (mở từ trang nhóm): mỗi buổi chỉ còn học viên của nhóm, ẩn tạo / sửa / xoá buổi (buổi học
+ * là của cả lớp) — vẫn đánh vắng / có mặt, ghi lý do cho học viên trong nhóm.
  */
 export default function ClassAttendanceScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, group } = useLocalSearchParams<{ id: string; group?: string }>();
+  const scope = useGroupScope(group);
   const brand = useThemeColor('brand');
   const fg = useThemeColor('foreground');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -46,7 +52,11 @@ export default function ClassAttendanceScreen() {
   const sessions = useClassSessions(id, true, true);
   const reasons = useAbsenceReasons(id);
   const admin = useSessionAdmin(id);
-  const items = sessions.data ?? [];
+  const ids = scope.ids;
+  const items = useMemo(() => {
+    const list = sessions.data ?? [];
+    return ids ? list.map((s) => scopeSession(s, ids)) : list;
+  }, [sessions.data, ids]);
   const pull = usePullRefresh(() => Promise.all([sessions.refetch(), reasons.refetch()]));
 
   const setPresent = (sessionId: string, userId: string, present: boolean) =>
@@ -78,9 +88,17 @@ export default function ClassAttendanceScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen
         options={{
-          title: cls?.class_code ? `Điểm danh · ${cls.class_code}` : 'Điểm danh',
+          title: scope.active
+            ? scope.name
+              ? `Điểm danh · ${scope.name}`
+              : 'Điểm danh nhóm'
+            : cls?.class_code
+              ? `Điểm danh · ${cls.class_code}`
+              : 'Điểm danh',
           headerShown: true,
-          headerRight: () => (
+          headerRight: scope.active
+            ? undefined
+            : () => (
             <Pressable onPress={() => setForm({})} hitSlop={10} accessibilityLabel="Tạo buổi học" className="active:opacity-60">
               <Ionicons name="add-circle-outline" size={25} color={fg} />
             </Pressable>
@@ -102,7 +120,7 @@ export default function ClassAttendanceScreen() {
                 reasons: reasons.data,
                 onSetPresent: (userId, present) => setPresent(item._id, userId, present),
                 onReason: (userId, name, current) => setReasonEdit({ sessionId: item._id, userId, name, current }),
-                onMenu: () => sessionMenu(item, items.length - index),
+                onMenu: scope.active ? undefined : () => sessionMenu(item, items.length - index),
               }}
             />
           </View>
@@ -116,7 +134,7 @@ export default function ClassAttendanceScreen() {
           ) : null
         }
         ListEmptyComponent={
-          sessions.isLoading ? (
+          sessions.isLoading || scope.pending ? (
             <LoadingView />
           ) : sessions.isError ? (
             <StateView icon="cloud-offline-outline" title="Không tải được buổi học" actionLabel="Thử lại" onAction={() => sessions.refetch()} />
@@ -124,9 +142,9 @@ export default function ClassAttendanceScreen() {
             <StateView
               icon="calendar-outline"
               title="Chưa có buổi học nào"
-              description="Tạo buổi học để cấu hình Zoom và điểm danh."
-              actionLabel="Tạo buổi học"
-              onAction={() => setForm({})}
+              description={scope.active ? undefined : 'Tạo buổi học để cấu hình Zoom và điểm danh.'}
+              actionLabel={scope.active ? undefined : 'Tạo buổi học'}
+              onAction={scope.active ? undefined : () => setForm({})}
             />
           )
         }

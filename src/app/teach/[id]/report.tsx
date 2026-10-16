@@ -6,8 +6,9 @@ import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'reac
 import { Avatar } from '@/components/ui/avatar';
 import { Segmented } from '@/components/ui/segmented';
 import { LoadingView } from '@/components/ui/state-view';
-import { useClassSessions, type ClassSessionItem } from '@/features/classes/sessions-api';
+import { scopeSession, useClassSessions, type ClassSessionItem } from '@/features/classes/sessions-api';
 import { useStaffClassDetail, useStaffClasses, type ClassStudentStats } from '@/features/classes/staff-api';
+import { useGroupScope } from '@/features/classes/teach-api';
 import { formatDate } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
@@ -28,12 +29,15 @@ const RISK_VIEW: Record<Risk, { label: string; box: string; text: string }> = {
  * Báo cáo lớp (ReportsTab web, bản điện thoại): tổng quan + 3 danh sách — học viên cần lưu tâm (vắng / thiếu
  * bài), bài tập bị thiếu nhiều nhất, vắng theo buổi. Bấm 1 dòng để mở chi tiết. Số liệu tính trên máy từ
  * GET /classes/:id/detail (missing_assignments) + buổi học đã diễn ra.
+ * `?group=<id>` (mở từ trang nhóm): cùng báo cáo nhưng chỉ học viên của nhóm (chi tiết nhóm + buổi học lọc theo nhóm).
  */
 export default function ClassReportScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, group } = useLocalSearchParams<{ id: string; group?: string }>();
+  const scope = useGroupScope(group);
   const brand = useThemeColor('brand');
   const cls = useStaffClasses().data?.find((c) => c._id === id);
-  const detail = useStaffClassDetail(id);
+  const classDetail = useStaffClassDetail(id, !group);
+  const detail = group ? scope.detail : classDetail;
   const sessions = useClassSessions(id, true);
   const pull = usePullRefresh(() => Promise.all([detail.refetch(), sessions.refetch()]));
   const [tab, setTab] = useState<Tab>('risk');
@@ -45,6 +49,7 @@ export default function ClassReportScreen() {
   const bySession = useMemo(
     () =>
       [...(sessions.data ?? [])]
+        .map((s) => (scope.ids ? scopeSession(s, scope.ids) : s))
         .sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime())
         .map((s: ClassSessionItem, i) => {
           const absent = (s.absent_students ?? []).filter((a) => a.is_present !== true);
@@ -58,7 +63,7 @@ export default function ClassReportScreen() {
             total: s.stats?.enrolled || present + absent.length,
           };
         }),
-    [sessions.data],
+    [sessions.data, scope.ids],
   );
 
   const absentByStudent = useMemo(() => {
@@ -105,7 +110,7 @@ export default function ClassReportScreen() {
   if (detail.isLoading) {
     return (
       <View className="flex-1 bg-background">
-        <Stack.Screen options={{ title: 'Báo cáo lớp', headerShown: true }} />
+        <Stack.Screen options={{ title: group ? 'Báo cáo nhóm' : 'Báo cáo lớp', headerShown: true }} />
         <LoadingView />
       </View>
     );
@@ -115,7 +120,12 @@ export default function ClassReportScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: cls?.class_code ? `Báo cáo · ${cls.class_code}` : 'Báo cáo lớp', headerShown: true }} />
+      <Stack.Screen
+        options={{
+          title: group ? (scope.name ? `Báo cáo · ${scope.name}` : 'Báo cáo nhóm') : cls?.class_code ? `Báo cáo · ${cls.class_code}` : 'Báo cáo lớp',
+          headerShown: true,
+        }}
+      />
       <ScrollView
         contentContainerClassName="gap-3 p-4 pb-10"
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}>
