@@ -21,6 +21,7 @@ import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { AppIcon } from '@/components/ui/app-icon';
 
 type Filter = 'all' | 'unread' | 'class' | 'group' | 'direct';
 
@@ -350,7 +351,7 @@ const RoomRow = memo(function RoomRow({
         {/* Hàng trên: tên — (tắt báo) — giờ. Giờ nằm đây chứ không chen giữa dòng xem trước
             như trước, nhờ vậy chữ xem trước được dùng trọn hàng dưới thay vì bị cắt sớm. */}
         <View className="flex-row items-center gap-1.5">
-          {room.is_pinned ? <Ionicons name="pin" size={12} color={colors.muted} /> : null}
+          {room.is_pinned ? <AppIcon name="pushpin" size={12} color={colors.muted} /> : null}
           <Text className={`flex-1 text-[15.5px] text-foreground ${bold ? 'font-bold' : 'font-medium'}`} numberOfLines={1}>
             <Highlighted text={roomTitle(room)} words={highlight} />
           </Text>

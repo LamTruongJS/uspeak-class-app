@@ -592,10 +592,17 @@ export default function ChatRoomScreen() {
     });
   };
 
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  /**
+   * Khoảng cách tới đáy: chiều cao nội dung lấy từ `onContentSizeChange`. Lúc mở phòng FlashList báo
+   * chiều cao ƯỚC LƯỢNG của các ô (lớn hơn thật), đo xong co lại; sự kiện cuộn vẫn mang số CŨ → cờ
+   * "đang đọc tin cũ" kẹt ở true, nút "↓" hiện dù đang ở đáy và phòng không được đánh dấu đã đọc.
+   */
+  const metrics = useRef({ offset: 0, layout: 0, content: 0 });
+  const evalScrolledUp = () => {
+    const { offset, layout, content } = metrics.current;
+    if (!layout) return;
     // Tin mới nhất ở cuối danh sách → "đang đọc tin cũ" = cách đáy quá ngưỡng
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const up = contentSize.height - layoutMeasurement.height - contentOffset.y > SCROLLED_UP_PX;
+    const up = content - layout - offset > SCROLLED_UP_PX;
     if (up !== scrolledUp) {
       setScrolledUp(up);
       if (!up) {
@@ -603,6 +610,20 @@ export default function ChatRoomScreen() {
         markRead();
       }
     }
+  };
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    // contentSize của sự kiện chỉ dùng khi chưa có số đo thật từ onContentSizeChange
+    metrics.current = {
+      offset: contentOffset.y,
+      layout: layoutMeasurement.height,
+      content: metrics.current.content || contentSize.height,
+    };
+    evalScrolledUp();
+  };
+  const onContentSizeChange = (_w: number, h: number) => {
+    metrics.current.content = h;
+    evalScrolledUp();
   };
 
   // Callback ổn định cho MessageItem (memo): bản gốc đổi theo danh sách tin → mỗi tin mới vẽ lại MỌI bong bóng
@@ -728,6 +749,7 @@ export default function ChatRoomScreen() {
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               keyboardShouldPersistTaps="handled"
               onScroll={onScroll}
+              onContentSizeChange={onContentSizeChange}
               onScrollBeginDrag={() => {
                 jumpToken.current = null;
               }}

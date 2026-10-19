@@ -11,6 +11,7 @@ import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 import { reactionTotal, REACTIONS, topReactions, type ForumAttachment, type ForumPost } from './api';
+import { AppIcon } from '@/components/ui/app-icon';
 
 const ROLE_LABEL: Record<string, string> = {
   AD: 'Quản trị',
@@ -76,7 +77,7 @@ export const ForumPostCard = memo(function ForumPostCard({
             {post.is_edited ? ' · đã sửa' : ''}
           </Text>
         </View>
-        {post.is_pinned ? <Ionicons name="pin" size={15} color={brand} /> : null}
+        {post.is_pinned ? <AppIcon name="pushpin" size={15} color={brand} /> : null}
         {post.class_code ? <Badge label={post.class_code} tone="brand" /> : null}
       </View>
 

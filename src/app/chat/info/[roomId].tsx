@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { showToast } from '@/components/ui/toast';
@@ -29,8 +29,9 @@ import { mediaCacheKey, resolveMediaUrl, useMediaToken } from '@/lib/media';
 import { isStaffRole } from '@/navigation/features';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+type IconName = AppIconName;
 
 const ROLE_LABEL: Record<string, string> = { AD: 'Quản trị', TE: 'Giáo viên', TA: 'Trợ giảng', TG: 'Nhận xét', ST: 'Học viên' };
 const STAFF_ROLES = new Set(['AD', 'TE', 'TA', 'TG']);
@@ -286,7 +287,7 @@ export default function RoomInfoScreen() {
           onPress={toggleMute}
         />
         <QuickAction
-          icon="pin-outline"
+          icon="pushpin"
           label="Tin ghim"
           badge={pinnedList.length || undefined}
           onPress={() => pinnedList[0] && backToRoom({ type: 'jump', messageId: pinnedList[0]._id })}
@@ -440,7 +441,7 @@ function QuickAction({
         {loading ? (
           <ActivityIndicator size="small" color={active ? onBrand : brand} />
         ) : (
-          <Ionicons name={icon} size={21} color={active ? onBrand : brand} />
+          <AppIcon name={icon} size={21} color={active ? onBrand : brand} />
         )}
         {badge ? (
           <View className="absolute -right-1 -top-1 min-w-[18px] items-center rounded-full border-2 border-surface bg-brand px-1">
@@ -477,7 +478,7 @@ function PinnedRow({ message: m, divider, onPress }: { message: ChatMessage; div
       onPress={onPress}
       className={`flex-row items-center gap-3 px-4 py-3 active:bg-surface-muted ${divider ? 'border-t border-border' : ''}`}>
       <View className="h-8 w-8 items-center justify-center rounded-full bg-brand-soft">
-        <Ionicons name="pin" size={15} color={brand} />
+        <AppIcon name="pushpin" size={15} color={brand} />
       </View>
       <View className="flex-1">
         <Text className="text-[14px] text-foreground" numberOfLines={2}>

@@ -66,7 +66,7 @@ export function CreatePollSheet({ roomId, visible, onClose }: { roomId: string; 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoider className="flex-1 bg-background">
+      <KeyboardAvoider modal className="flex-1 bg-background">
         <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
           <Pressable onPress={onClose} hitSlop={8}>
             <Text className="text-base text-brand">Huỷ</Text>

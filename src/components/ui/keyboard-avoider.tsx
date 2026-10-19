@@ -16,15 +16,26 @@ export function KeyboardAvoider({
   children,
   className = 'flex-1',
   style,
+  modal,
 }: {
   children: ReactNode;
   className?: string;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Nằm trong <Modal> ĐỤC (không có `transparent`, không `statusBarTranslucent`): trên Android cửa
+   * sổ của Modal loại này TỰ co lại khi bàn phím mở → đệm thêm là gấp đôi, nội dung bị đẩy lên để
+   * hở một khoảng trống lớn.
+   *
+   * KHÔNG đặt cho sheet dùng `transparent` + `statusBarTranslucent` (phần lớn sheet trong app):
+   * cửa sổ đó vẽ tràn viền nên KHÔNG co, bỏ đệm là sheet nằm khuất sau bàn phím.
+   */
+  modal?: boolean;
 }) {
   const [inset, setInset] = useState(0);
 
   useEffect(() => {
     const ios = Platform.OS === 'ios';
+    if (modal && !ios) return;
     const onShow = (e: KeyboardEvent) => {
       if (ios) LayoutAnimation.configureNext(LayoutAnimation.create(e.duration || 250, 'keyboard', 'opacity'));
       setInset(Math.max(0, Dimensions.get('screen').height - e.endCoordinates.screenY));
@@ -40,7 +51,7 @@ export function KeyboardAvoider({
       ...(ios ? [Keyboard.addListener('keyboardWillChangeFrame', onShow)] : []),
     ];
     return () => subs.forEach((s) => s.remove());
-  }, []);
+  }, [modal]);
 
   return (
     <View className={className} style={[style, { paddingBottom: inset }]}>

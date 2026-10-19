@@ -23,6 +23,7 @@ import {
 } from './message-content';
 import { SwipeToReply } from './swipe-to-reply';
 import type { ChatMessage } from './types';
+import { AppIcon } from '@/components/ui/app-icon';
 
 const GROUP_GAP_MS = 5 * 60_000;
 
@@ -147,7 +148,7 @@ function MessageItemBase({
           </Pressable>
           <Reactions m={m} myId={myId} mine={false} onToggle={(e) => onToggleReaction(m, e)} />
           <View className="flex-row items-center gap-1">
-            {m.is_pinned ? <Ionicons name="pin" size={11} color={muted} /> : null}
+            {m.is_pinned ? <AppIcon name="pushpin" size={11} color={muted} /> : null}
             <Text className="text-[11px] text-muted">{formatTime(created)}</Text>
           </View>
         </View>
@@ -238,7 +239,7 @@ function MessageItemBase({
                   />
                   {showMeta ? (
                     <View className="absolute bottom-1.5 right-2.5 flex-row items-center gap-1">
-                      {m.is_pinned ? <Ionicons name="pin" size={10} color={mine ? '#ffffffb3' : muted} /> : null}
+                      {m.is_pinned ? <AppIcon name="pushpin" size={10} color={mine ? '#ffffffb3' : muted} /> : null}
                       <Text className={`text-[10.5px] ${mine ? 'text-on-brand opacity-75' : 'text-muted'}`}>
                         {m.is_edited ? 'Đã sửa · ' : ''}
                         {time}

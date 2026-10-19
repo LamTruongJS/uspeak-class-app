@@ -54,13 +54,15 @@ export function ZoomableImage({
     ty.value = withTiming(Math.min(maxY, Math.max(-maxY, ty.value)));
   };
 
+  // KHÔNG gọi scheduleOnRN ở đây: hàm JS (reportZoom) bị bắt trong worklet LỒNG không được chuyển
+  // sang đúng → runtime văng "Cannot read property 'split' of undefined". Người gọi tự báo ngay trong
+  // callback của cử chỉ.
   const reset = () => {
     'worklet';
     scale.value = withTiming(1);
     savedScale.value = 1;
     tx.value = withTiming(0);
     ty.value = withTiming(0);
-    scheduleOnRN(reportZoom, false);
   };
 
   const pinch = Gesture.Pinch()
@@ -81,8 +83,10 @@ export function ZoomableImage({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      if (scale.value < 1.05) reset();
-      else {
+      if (scale.value < 1.05) {
+        reset();
+        scheduleOnRN(reportZoom, false);
+      } else {
         clampTranslate(scale.value);
         scheduleOnRN(reportZoom, true);
       }
@@ -122,6 +126,7 @@ export function ZoomableImage({
     .onEnd((e) => {
       if (scale.value > 1) {
         reset();
+        scheduleOnRN(reportZoom, false);
         return;
       }
       const s = DOUBLE_TAP_SCALE;

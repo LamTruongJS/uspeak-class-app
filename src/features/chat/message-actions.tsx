@@ -1,7 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import type { ComponentProps } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +8,7 @@ import { useThemeColor } from '@/theme/use-theme-color';
 import type { ChatPermissions } from './api';
 import { plainContent } from './format';
 import type { ChatMessage } from './types';
+import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -68,7 +67,7 @@ export function MessageActions({ message, myId, permissions, onClose, onReact, o
       ? [
           {
             key: 'pin',
-            icon: message.is_pinned ? 'pin-outline' : 'pin',
+            icon: 'pushpin',
             label: message.is_pinned ? 'Bỏ ghim' : 'Ghim',
             onPress: () => onPin(message, !message.is_pinned),
           } as ActionDef,
@@ -125,7 +124,7 @@ export function MessageActions({ message, myId, permissions, onClose, onReact, o
 
 type ActionDef = {
   key: string;
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: AppIconName;
   label: string;
   danger?: boolean;
   onPress: () => void;
@@ -157,7 +156,7 @@ function ActionTile({ action, onPress }: { action: ActionDef; onPress: () => voi
     <Pressable onPress={onPress} accessibilityRole="button" className="w-1/4 items-center gap-1.5 py-2 active:opacity-60">
       <View
         className={`h-[52px] w-[52px] items-center justify-center rounded-full ${action.danger ? 'bg-danger-soft' : 'bg-surface-muted'}`}>
-        <Ionicons name={action.icon} size={22} color={color} />
+        <AppIcon name={action.icon} size={22} color={color} />
       </View>
       <Text className={`text-[12.5px] font-medium ${action.danger ? 'text-danger' : 'text-foreground'}`} numberOfLines={1}>
         {action.label}

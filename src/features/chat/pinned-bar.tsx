@@ -9,6 +9,7 @@ import { useThemeColor } from '@/theme/use-theme-color';
 import { usePinnedMessages } from './api';
 import { plainContent } from './format';
 import type { ChatMessage } from './types';
+import { AppIcon } from '@/components/ui/app-icon';
 
 function preview(m: ChatMessage) {
   if (m.assignment_card) return `📄 ${m.assignment_card.title}`;
@@ -37,7 +38,7 @@ export function PinnedBar({ roomId, onJump }: { roomId: string; onJump: (message
       {/* Một dòng thôi: hai dòng (nhãn + nội dung) ăn mất chỗ của tin nhắn, mà nội dung ghim hay là
           một cái link dài nên dòng thứ hai cũng chỉ hiện được vài chữ rồi "…" */}
       <View className="flex-row items-center gap-2 border-b border-border bg-surface px-3 py-2">
-        <Ionicons name="pin" size={15} color={brand} />
+        <AppIcon name="pushpin" size={15} color={brand} />
         <Pressable className="flex-1 flex-row items-center gap-1.5 active:opacity-70" onPress={() => onJump(top._id)}>
           <Text className="text-[12.5px] font-semibold text-brand">Đã ghim{data.length > 1 ? ` (${data.length})` : ''}</Text>
           <Text className="flex-1 text-[13px] text-muted" numberOfLines={1}>
