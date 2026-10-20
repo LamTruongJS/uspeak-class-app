@@ -50,6 +50,8 @@ interface GrantedClass {
 
 interface CourseGroup {
   course_id: string;
+  /** Mọi khoá của nhóm; nhiều khoá = lượt chọn tính chung (học A thì không học B) */
+  course_ids?: string[];
   max_selections: number;
   class_ids: string[];
 }
@@ -118,20 +120,26 @@ function normalize(raw: ComboClass[]): Combo[] {
     const classToGroup = new Map<string, number>();
     groups.forEach((g, i) => g.class_ids.forEach((id) => !classToGroup.has(id) && classToGroup.set(id, i)));
 
+    // Gom theo NHÓM (lớp ngoài mọi nhóm thì theo khoá): 1 nhóm có thể gồm nhiều khoá ("chỉ học khoá A
+    // hoặc khoá B") và lượt chọn tính chung cả nhóm — gom theo khoá sẽ hiện A còn 0 + B còn 0 rời rạc.
     const byCourse = new Map<string, CourseBlock>();
     for (const c of classes) {
-      const k = c.course_code || c.course_name || c._id;
-      if (!byCourse.has(k)) {
-        const g = classToGroup.get(c._id);
+      const g = classToGroup.get(c._id);
+      const k = g !== undefined ? `group-${g}` : c.course_code || c.course_name || c._id;
+      const courseName = c.course_name || 'Khoá học';
+      const block = byCourse.get(k);
+      if (!block) {
         byCourse.set(k, {
           key: k,
-          name: c.course_name || 'Khoá học',
+          name: courseName,
           group: g ?? null,
           max: g !== undefined ? groups[g].max_selections : 1,
-          classes: [],
+          classes: [c],
         });
+      } else {
+        if (!block.name.split(' hoặc ').includes(courseName)) block.name = `${block.name} hoặc ${courseName}`;
+        block.classes.push(c);
       }
-      byCourse.get(k)!.classes.push(c);
     }
     // Lớp khai giảng sớm lên trước — học viên thường chọn theo ngày bắt đầu
     const courses = [...byCourse.values()].map((b) => ({
@@ -211,7 +219,8 @@ export default function ProRegisterScreen() {
     }
     const g = combo.classToGroup.get(c._id);
     if (g !== undefined && usedIn(combo, g) >= combo.groups[g].max_selections) {
-      showToast('success', 'Đã đủ lượt chọn', `Khoá ${c.course_name} chỉ được chọn ${combo.groups[g].max_selections} lớp. Bỏ chọn một lớp khác (hoặc huỷ lớp đã đăng ký) rồi chọn lại nhé.`);
+      const blockName = combo.courses.find((b) => b.group === g)?.name || c.course_name;
+      showToast('success', 'Đã đủ lượt chọn', `Khoá ${blockName} chỉ được chọn ${combo.groups[g].max_selections} lớp. Bỏ chọn một lớp khác (hoặc huỷ lớp đã đăng ký) rồi chọn lại nhé.`);
       return;
     }
     setPicked((p) => ({ ...p, [c._id]: combo.code }));
@@ -313,7 +322,7 @@ export default function ProRegisterScreen() {
                     return (
                       <View key={`${combo.code}-${course.key}`} className="gap-2.5">
                         <View className="flex-row items-center gap-2 px-1 pt-1">
-                          <Text className="flex-1 text-[15px] font-bold text-foreground" numberOfLines={1}>
+                          <Text className="flex-1 text-[15px] font-bold text-foreground" numberOfLines={2}>
                             {course.name}
                           </Text>
                           <View className={`rounded-full px-2.5 py-1 ${left > 0 ? 'bg-success-soft' : 'bg-surface-muted'}`}>
