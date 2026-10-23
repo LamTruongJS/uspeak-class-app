@@ -72,6 +72,10 @@ export interface NeedRoleSelection {
   selectionType: 'role';
   email: string;
   availableRoles: RoleOption[];
+  /** Chỉ có ở luồng Google: ảnh Google (class-be đã gói vào vé, không cần gửi lại). */
+  googleAvatar?: string;
+  /** Chỉ có ở luồng Google: vé bắt buộc gửi lại ở /auth/google-select, hết hạn sau 10 phút. */
+  selectionTicket?: string;
 }
 
 /** Một vai trò có nhiều tài khoản → chọn tài khoản. */
@@ -80,6 +84,16 @@ export interface NeedAccountSelection {
   selectionType: 'account';
   selectedRole: RoleCode;
   users: AccountOption[];
+  googleAvatar?: string;
+  selectionTicket?: string;
+}
+
+/** Body POST /auth/google-select — email lấy từ vé, email gửi kèm chỉ để class-be so khớp. */
+export interface GoogleSelectBody {
+  selectionTicket: string;
+  email?: string;
+  role_code?: string;
+  userId?: string;
 }
 
 export type LoginResult = LoginSuccess | NeedRoleSelection | NeedAccountSelection;

@@ -12,7 +12,7 @@ import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { RichText } from '@/components/ui/rich-text';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { showToast } from '@/components/ui/toast';
-import { YoutubePlayer, type YoutubePlayerHandle } from '@/components/ui/youtube-player';
+import { SubmissionVideoPlayer, type SubmissionPlayerHandle } from '@/components/ui/submission-video-player';
 import {
   gradingActions,
   useGraders,
@@ -30,7 +30,7 @@ import { ImageViewer } from '@/features/chat/message-content';
 import { getErrorMessage } from '@/lib/api/client';
 import { queryClient } from '@/lib/query-client';
 import { resolveMediaUrl, useMediaToken } from '@/lib/media';
-import { extractYoutubeVideoId } from '@/lib/youtube';
+import { extractSubmissionVideoKey } from '@/lib/submission-video';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -77,7 +77,7 @@ const MODE: Record<GradingMode, { title: string; status: string; gone: string }>
 };
 
 type Media =
-  | { kind: 'video'; key: string; label: string; youtubeId: string; itemKey?: string }
+  | { kind: 'video'; key: string; label: string; videoKey: string; itemKey?: string }
   | { kind: 'image'; key: string; label: string; url: string; itemKey?: string };
 
 type Tab = 'playlist' | 'grading' | 'review_requirements' | 'requirements' | 'notes' | 'history';
@@ -94,13 +94,13 @@ function buildMedia(s: SubmissionForGrading): { media: Media[]; multi: boolean }
         const urls = (g.video_urls ?? []).filter(Boolean);
         return urls
           .map((url, i) => {
-            const id = extractYoutubeVideoId(url);
+            const id = extractSubmissionVideoKey(url);
             return id
               ? ({
                   kind: 'video',
                   key: `${g.item_key}-v${i}`,
                   label: urls.length > 1 ? `${g.label} (${i + 1})` : g.label,
-                  youtubeId: id,
+                  videoKey: id,
                   itemKey: g.item_key,
                 } as Media)
               : null;
@@ -119,7 +119,7 @@ function buildMedia(s: SubmissionForGrading): { media: Media[]; multi: boolean }
     return { media, multi };
   }
   const videos = (s.video_urls?.length ? s.video_urls : s.video_url ? [s.video_url] : [])
-    .map((u) => extractYoutubeVideoId(u))
+    .map((u) => extractSubmissionVideoKey(u))
     .filter((v): v is string => !!v);
   const images = (s.image_urls ?? []).filter(Boolean);
   return {
@@ -129,7 +129,7 @@ function buildMedia(s: SubmissionForGrading): { media: Media[]; multi: boolean }
         kind: 'video' as const,
         key: `v${i}`,
         label: videos.length > 1 ? `Video ${i + 1}` : 'Video',
-        youtubeId: id,
+        videoKey: id,
       })),
       // Bài thường: nhận xét ảnh không gắn itemKey riêng (web cũng chỉ bắt buộc ở bài nhiều mục)
       ...images.map((url, i) => ({ kind: 'image' as const, key: `i${i}`, label: images.length > 1 ? `Ảnh ${i + 1}` : 'Ảnh', url })),
@@ -475,7 +475,7 @@ function GradingForm({ s, mode }: { s: SubmissionForGrading; mode: GradingMode }
               ) : null}
 
               {current?.kind === 'video' ? (
-                <VideoCommentList comments={comments.filter((c) => c.videoId === current.youtubeId)} setComments={setComments} />
+                <VideoCommentList comments={comments.filter((c) => c.videoId === current.videoKey)} setComments={setComments} />
               ) : null}
 
               <Section title="Chấm điểm theo tiêu chí" icon="star-outline">
@@ -936,7 +936,7 @@ function VideoPane({
   comments: GradingComment[];
   setComments: React.Dispatch<React.SetStateAction<GradingComment[]>>;
 }) {
-  const player = useRef<YoutubePlayerHandle>(null);
+  const player = useRef<SubmissionPlayerHandle>(null);
   const muted = useThemeColor('muted');
   const [now, setNow] = useState(0);
   const [start, setStart] = useState<number | null>(null);
@@ -969,7 +969,7 @@ function VideoPane({
           endTime,
           text: text.trim(),
           createdAt: new Date().toISOString(),
-          videoId: media.youtubeId,
+          videoId: media.videoKey,
           itemKey: media.itemKey,
         },
       ].sort((a, b) => a.time - b.time),
@@ -982,9 +982,9 @@ function VideoPane({
 
   return (
     <View className="border-b border-border bg-surface">
-      <YoutubePlayer
+      <SubmissionVideoPlayer
         ref={player}
-        videoId={media.youtubeId}
+        videoKey={media.videoKey}
         onTime={(t) => {
           setNow(t);
           segment.check(t);
@@ -1022,7 +1022,7 @@ function VideoPane({
             </Pressable>
           ) : null}
           <View className="flex-1" />
-          <Text className="text-[11.5px] text-muted">{comments.filter((c) => c.videoId === media.youtubeId).length} mốc</Text>
+          <Text className="text-[11.5px] text-muted">{comments.filter((c) => c.videoId === media.videoKey).length} mốc</Text>
         </View>
         <View className="flex-row items-end gap-2">
           <TextInput
@@ -1207,7 +1207,7 @@ function MediaPlaylist({
         const done =
           item.kind === 'image'
             ? !item.itemKey || imageComments.some((comment) => comment.itemKey === item.itemKey)
-            : comments.some((comment) => comment.videoId === item.youtubeId);
+            : comments.some((comment) => comment.videoId === item.videoKey);
         return (
           <Pressable
             key={item.key}

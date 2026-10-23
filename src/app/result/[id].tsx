@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { RichText } from '@/components/ui/rich-text';
 import { LoadingView, StateView } from '@/components/ui/state-view';
-import { YoutubePlayer, type YoutubePlayerHandle } from '@/components/ui/youtube-player';
+import { SubmissionVideoPlayer, type SubmissionPlayerHandle } from '@/components/ui/submission-video-player';
 import {
   SUBMISSION_STATUS,
   useSubmissionResult,
@@ -23,15 +23,16 @@ import { SubmissionHistoryTimeline } from '@/features/assignments/submission-his
 import { ImageViewer } from '@/features/chat/message-content';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
-import { extractYoutubeVideoId } from '@/lib/youtube';
+import { extractSubmissionVideoKey } from '@/lib/submission-video';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor, type ThemeColor } from '@/theme/use-theme-color';
 
 /**
  * Kết quả bài nộp của học viên — port từ uspeak-class-fe assignments/result/[id]/page.tsx (phần học viên).
  * Quiz: điểm từng câu + đáp án đúng/sai + nhận xét phát âm. Bài video/ảnh: điểm, tiêu chí, nhận xét
- * của giáo viên, nhận xét theo mốc thời gian — video phát NGAY TRONG APP (YoutubePlayer), bấm mốc là tua
- * tới đúng giây đó; ảnh mở bằng trình xem ảnh của app. Không bật app YouTube / trình duyệt.
+ * của giáo viên, nhận xét theo mốc thời gian — video (link YouTube hoặc video tải lên Bunny) phát NGAY TRONG APP
+ * (SubmissionVideoPlayer), bấm mốc là tua tới đúng giây đó; ảnh mở bằng trình xem ảnh của app. Không bật app
+ * YouTube / trình duyệt.
  * `?staff=1`: nhân viên xem bài đã chấm (endpoint /assignments/submissions/:id).
  */
 
@@ -270,7 +271,7 @@ function resultMedia(data: SubmissionResult): ResultMedia[] {
   if (data.submitted_items?.length) {
     return data.submitted_items.flatMap((item) => {
       const videos = (item.video_urls ?? []).flatMap((url, index): ResultMedia[] => {
-        const videoId = extractYoutubeVideoId(url);
+        const videoId = extractSubmissionVideoKey(url);
         return videoId
           ? [{ kind: 'video', key: `${item.item_key}-v${index}`, label: item.label, videoId, itemKey: item.item_key }]
           : [];
@@ -291,7 +292,7 @@ function resultMedia(data: SubmissionResult): ResultMedia[] {
   const videoUrls = data.video_urls?.length ? data.video_urls : data.video_url ? [data.video_url] : [];
   return [
     ...videoUrls.flatMap((url, index): ResultMedia[] => {
-      const videoId = extractYoutubeVideoId(url);
+      const videoId = extractSubmissionVideoKey(url);
       return videoId ? [{ kind: 'video', key: `video-${index}`, label: `Video ${index + 1}`, videoId }] : [];
     }),
     ...(data.image_urls ?? []).map(
@@ -421,7 +422,7 @@ function ResultContent({
       {media ? (
         <View className="gap-2">
           <Text className="text-sm font-semibold text-foreground">{media.label}</Text>
-          {media.kind === 'video' ? <VideoWithComments videoId={media.videoId} comments={videoComments} /> : <ImageGrid urls={[media.url]} />}
+          {media.kind === 'video' ? <VideoWithComments key={media.key} videoId={media.videoId} comments={videoComments} /> : <ImageGrid urls={[media.url]} />}
         </View>
       ) : (
         <InfoCard icon="cloud-offline-outline" title="Không có nội dung bài nộp" body="Bài nộp này không có video hoặc hình ảnh để hiển thị." />
@@ -682,7 +683,7 @@ function Card({
 
 function VideoWithComments({ videoId, comments }: { videoId: string; comments: TimestampComment[] }) {
   const brand = useThemeColor('brand');
-  const player = useRef<YoutubePlayerHandle>(null);
+  const player = useRef<SubmissionPlayerHandle>(null);
   const [now, setNow] = useState(0);
   // Bấm 1 mốc = phát LẶP đúng đoạn đó (start → end, nghỉ 1 giây rồi quay lại đầu), như bản web.
   const loop = useSegmentPlayback(player, { repeat: true });
@@ -692,9 +693,9 @@ function VideoWithComments({ videoId, comments }: { videoId: string; comments: T
 
   return (
     <View className="overflow-hidden rounded-2xl border border-border bg-surface">
-      <YoutubePlayer
+      <SubmissionVideoPlayer
         ref={player}
-        videoId={videoId}
+        videoKey={videoId}
         onTime={(t) => {
           setNow(t);
           loop.check(t);

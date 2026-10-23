@@ -17,7 +17,7 @@ import { hasInvalid, makeLink, validUrls, YoutubeLinksEditor, type YoutubeLink }
 
 /**
  * Các kiểu nộp bài (port từ uspeak-class-fe my-assignments/[id]/submit/*):
- * - Video: dán link YouTube (không upload video thẳng — giống web)
+ * - Video: dán link YouTube. Video HV đã tải thẳng lên Bunny (từ web) được giữ nguyên khi sửa bài; app chưa tải lên được
  * - Ảnh: chọn/chụp ảnh, nén rồi upload S3
  * - Nhiều mục: mỗi mục là video hoặc ảnh
  * - Shadowing: không nộp ở đây, mở app Shadowing qua SSO

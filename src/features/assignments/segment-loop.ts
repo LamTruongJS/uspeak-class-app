@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 
-import type { YoutubePlayerHandle } from '@/components/ui/youtube-player';
+import type { SubmissionPlayerHandle } from '@/components/ui/submission-video-player';
 
 /** "0:07" / "12:05" — mốc thời gian trong video. */
 export const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -29,7 +29,7 @@ export function rangeLabel(c: Segment): string {
 }
 
 /**
- * Phát đúng ĐOẠN của một nhận xét (start → end) trên trình phát YouTube trong app.
+ * Phát đúng ĐOẠN của một nhận xét (start → end) trên trình phát video bài nộp trong app (YouTube hoặc Bunny).
  *
  * `repeat` = true (màn kết quả của học viên): tới mốc kết thúc thì dừng ~1 giây rồi quay lại đầu
  * đoạn và phát tiếp — lặp A–B như bản web, để nghe đi nghe lại chỗ bị góp ý. Bấm lại mốc đang lặp
@@ -38,7 +38,7 @@ export function rangeLabel(c: Segment): string {
  *
  * Nhận xét không có mốc kết thúc thật (xem `segmentEnd`) thì chỉ tua tới đó như trước.
  */
-export function useSegmentPlayback(player: RefObject<YoutubePlayerHandle | null>, { repeat = false } = {}) {
+export function useSegmentPlayback(player: RefObject<SubmissionPlayerHandle | null>, { repeat = false } = {}) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const target = useRef<{ id: string; time: number; end: number } | null>(null);
   const pausing = useRef(false);

@@ -2,13 +2,25 @@ import { api, type ApiResponse } from '@/lib/api/client';
 import { uploadMultipart } from '@/lib/api/upload';
 import { tokenStorage } from '@/lib/auth/token-storage';
 
-import type { LoginCredentials, LoginResult, PaymentInfo, User } from './types';
+import type { GoogleSelectBody, LoginCredentials, LoginResult, PaymentInfo, User } from './types';
 
 export type { PaymentInfo };
 
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<LoginResult> {
     const res = await api.post<LoginResult>('/auth/login', credentials);
+    return res.data;
+  },
+
+  /** `accessToken` = access token Google (lấy qua trang web cầu nối — features/auth/google-web). */
+  async googleLogin(accessToken: string): Promise<LoginResult> {
+    const res = await api.post<LoginResult>('/auth/google', { accessToken });
+    return res.data;
+  },
+
+  /** Bước chọn vai trò / tài khoản sau khi Google trả về nhiều lựa chọn — như web. */
+  async googleSelect(body: GoogleSelectBody): Promise<LoginResult> {
+    const res = await api.post<LoginResult>('/auth/google-select', body);
     return res.data;
   },
 

@@ -3,6 +3,8 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
+import { useActionSheet } from '@/components/ui/action-sheet';
+import { isBunnySubmissionUrl } from '@/lib/submission-video';
 import { checkYoutubeVideo, extractYoutubeVideoId, youtubeThumbnail } from '@/lib/youtube';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -14,15 +16,21 @@ export interface YoutubeLink {
   state: LinkState;
   videoId: string | null;
   title?: string;
+  /**
+   * Video học viên đã tải thẳng lên Bunny (nộp từ web). App chưa tải video lên được nên chỉ GIỮ NGUYÊN
+   * link này (không sửa chữ, cho xoá) và gửi lại nguyên văn khi cập nhật bài — xem lib/submission-video.ts.
+   */
+  uploaded?: boolean;
 }
 
 let seq = 0;
 export function makeLink(url = ''): YoutubeLink {
   seq += 1;
+  if (isBunnySubmissionUrl(url)) return { id: `l${seq}`, url, state: 'valid', videoId: null, uploaded: true };
   return { id: `l${seq}`, url, state: url ? 'checking' : 'empty', videoId: extractYoutubeVideoId(url) };
 }
 
-/** Link hợp lệ để nộp (đã qua kiểm tra oEmbed). */
+/** Link hợp lệ để nộp (đã qua kiểm tra oEmbed, hoặc video đã tải lên — gửi lại nguyên văn). */
 export function validUrls(links: YoutubeLink[]) {
   return links.filter((l) => l.state === 'valid').map((l) => l.url.trim());
 }
@@ -87,7 +95,10 @@ export function YoutubeLinksEditor({ links, onChange, max = 10, disabled }: Prop
           disabled={disabled}
           canRemove={links.length > 1}
           onChangeText={(url) => update(link.id, url)}
-          onRemove={() => onChange(links.filter((l) => l.id !== link.id))}
+          onRemove={() => {
+            const next = links.filter((l) => l.id !== link.id);
+            onChange(next.length ? next : [makeLink()]);
+          }}
         />
       ))}
       {links.length < max && !disabled ? (
@@ -121,6 +132,8 @@ function LinkRow({
   const success = useThemeColor('success');
   const danger = useThemeColor('danger');
   const [focused, setFocused] = useState(false);
+
+  if (link.uploaded) return <UploadedRow disabled={disabled} onRemove={onRemove} />;
 
   const border =
     link.state === 'invalid' ? 'border-danger' : link.state === 'valid' ? 'border-success' : focused ? 'border-brand' : 'border-border';
@@ -163,6 +176,46 @@ function LinkRow({
           </Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** Video đã tải lên (Bunny): không có chữ để sửa — chỉ hiện thẻ + nút xoá (hỏi lại vì app chưa tải lại được). */
+function UploadedRow({ disabled, onRemove }: { disabled?: boolean; onRemove: () => void }) {
+  const muted = useThemeColor('muted');
+  const success = useThemeColor('success');
+  const menu = useActionSheet();
+  return (
+    <View className="flex-row items-center gap-3 rounded-xl border border-success bg-surface p-2">
+      <View className="h-[54px] w-24 items-center justify-center rounded-lg" style={{ backgroundColor: '#1e293b' }}>
+        <Ionicons name="play-circle" size={28} color="#fff" />
+      </View>
+      <View className="min-w-0 flex-1 gap-0.5">
+        <View className="flex-row items-center gap-1">
+          <Ionicons name="checkmark-circle" size={15} color={success} />
+          <Text className="text-sm font-semibold text-foreground">Video đã tải lên</Text>
+        </View>
+        <Text className="text-xs text-muted" numberOfLines={2}>
+          Giữ nguyên khi cập nhật bài. Muốn đổi video tải lên, hãy dùng bản web.
+        </Text>
+      </View>
+      {!disabled ? (
+        <Pressable
+          hitSlop={8}
+          accessibilityLabel="Xoá video đã tải lên"
+          onPress={() =>
+            menu.confirm({
+              title: 'Xoá video đã tải lên?',
+              message: 'App chưa tải video lên được — xoá rồi muốn nộp lại video này phải dùng bản web.',
+              label: 'Xoá video',
+              icon: 'trash-outline',
+              onConfirm: onRemove,
+            })
+          }>
+          <Ionicons name="close-circle" size={20} color={muted} />
+        </Pressable>
+      ) : null}
+      {menu.sheet}
     </View>
   );
 }
