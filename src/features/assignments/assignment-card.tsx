@@ -8,6 +8,7 @@ import { formatTime, isSameDay, addDays, startOfDay } from '@/lib/format';
 import { useThemeColor, type ThemeColor } from '@/theme/use-theme-color';
 
 import { getAssignmentScore, getAssignmentStatusView, type StudentAssignmentItem } from './api';
+import { symActionState } from './sym-action';
 
 /**
  * `session_number` lúc là số ("11"), lúc là cả tên buổi ("Buổi 11: bài tập tự hỏi…") — ghép thẳng
@@ -94,7 +95,12 @@ export const AssignmentCard = memo(function AssignmentCard({
   const notDone = !item.submission;
   const due = deadline && notDone ? deadlineText(deadline, now) : null;
   // Quá hạn + chưa nộp + không cho nộp trễ → không làm được nữa (web cũng làm mờ).
-  const locked = !!due && due.tone === 'danger' && deadline!.getTime() < now && item.allow_late_submission === false;
+  // Bài SYM quá hạn vẫn mở được để xem lại (web không khoá) — chỉ bài thường mới bị khoá.
+  const locked =
+    !item.sym && !!due && due.tone === 'danger' && deadline!.getTime() < now && item.allow_late_submission === false;
+  const symState = item.sym
+    ? symActionState(item.sym, { submissionDeadline: item.submission_deadline, allowLateSubmission: item.allow_late_submission })
+    : null;
   const redo = item.submission?.status === 'redo_requested';
   const meta = [showClass ? item.class_code : null, sessionLabel(item.session_number), item.assignment_type?.label]
     .filter(Boolean)
@@ -122,6 +128,16 @@ export const AssignmentCard = memo(function AssignmentCard({
           <Text className="text-[12.5px] text-muted" numberOfLines={1}>
             {meta}
           </Text>
+        ) : null}
+        {symState ? (
+          <View className="flex-row items-center gap-2 pt-0.5">
+            <View className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+              <View className={`h-full rounded-full ${symState.completed ? 'bg-success' : 'bg-violet'}`} style={{ width: `${symState.percent}%` }} />
+            </View>
+            <Text className={`text-[11.5px] font-semibold ${symState.completed ? 'text-success' : 'text-violet'}`} numberOfLines={1}>
+              {symState.label}
+            </Text>
+          </View>
         ) : null}
         {shPct !== null && notDone ? (
           <View className="flex-row items-center gap-2 pt-0.5">

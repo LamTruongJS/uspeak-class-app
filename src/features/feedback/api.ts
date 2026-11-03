@@ -1,9 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import type { BadgeTone } from '@/components/ui/badge';
+import { connectChatSocket } from '@/features/chat/socket';
 import { api, type ApiResponse } from '@/lib/api/client';
+import { useAuthStore } from '@/stores/auth.store';
 import { uploadMultipart, type LocalFile } from '@/lib/api/upload';
 
 /**
@@ -12,7 +15,20 @@ import { uploadMultipart, type LocalFile } from '@/lib/api/upload';
  * Ảnh trong feedback do class-be ký presigned sẵn (7 ngày) → dùng thẳng, không cần media token.
  */
 export type FeedbackType = 'BUG' | 'FEATURE' | 'FEEDBACK' | 'OTHER';
-export type FeedbackStatus = 'NEW' | 'REPLIED' | 'CLOSED';
+export type FeedbackStatus = 'NEW' | 'REPLIED' | 'RESOLVED' | 'CLOSED';
+/** APP = gửi từ widget/màn Góp ý; CHAT = nhân viên bấm "Báo cáo" trên tin nhắn chat (bản ghi cũ không có = APP). */
+export type FeedbackSource = 'APP' | 'CHAT';
+
+/** Báo cáo từ chat: phòng + tin được đánh dấu + học viên liên quan (class-be `chatService.buildIssueReportContext`). */
+export interface FeedbackChatContext {
+  roomId: string;
+  roomName: string;
+  roomType: string;
+  classId: string;
+  messageIds: string[];
+  studentId: string;
+  studentName: string;
+}
 
 export interface FeedbackImage {
   key: string;
@@ -37,6 +53,13 @@ export interface FeedbackItem {
   messages: FeedbackMessage[];
   status: FeedbackStatus;
   replyMessage?: string;
+  userEmail?: string;
+  userPhone?: string;
+  source?: FeedbackSource;
+  chatContext?: FeedbackChatContext | null;
+  /** Đóng dấu khi chuyển sang RESOLVED/CLOSED lần đầu, xoá khi mở lại (NEW/REPLIED) — do BE tự ghi. */
+  resolvedAt?: string | null;
+  resolvedByName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,7 +85,8 @@ export const FEEDBACK_TYPE_LABEL: Record<FeedbackType, string> = {
 
 export const FEEDBACK_STATUS_VIEW: Record<FeedbackStatus, { label: string; tone: BadgeTone }> = {
   NEW: { label: 'Chờ xử lý', tone: 'warning' },
-  REPLIED: { label: 'Đã phản hồi', tone: 'success' },
+  REPLIED: { label: 'Đã phản hồi', tone: 'info' },
+  RESOLVED: { label: 'Đã xử lý', tone: 'success' },
   CLOSED: { label: 'Đã đóng', tone: 'neutral' },
 };
 
@@ -150,9 +174,10 @@ export interface FeedbackFilter {
   search?: string;
   type?: FeedbackType;
   status?: FeedbackStatus;
+  source?: FeedbackSource;
 }
 
-export const adminFeedbackKey = (f: FeedbackFilter) => ['feedback', 'all', f.search ?? '', f.type ?? '', f.status ?? ''] as const;
+export const adminFeedbackKey = (f: FeedbackFilter) => ['feedback', 'all', f.search ?? '', f.type ?? '', f.status ?? '', f.source ?? ''] as const;
 
 /** Toàn bộ góp ý (chỉ admin gọi được — class-be chặn bằng `ensureAdmin`). */
 export function useAllFeedback(filter: FeedbackFilter) {
@@ -162,7 +187,7 @@ export function useAllFeedback(filter: FeedbackFilter) {
     queryFn: async ({ pageParam }) =>
       (
         await api.get<FeedbackListResponse>('/feedback', {
-          params: { page: pageParam, limit: PAGE_SIZE, search: filter.search || undefined, type: filter.type, status: filter.status },
+          params: { page: pageParam, limit: PAGE_SIZE, search: filter.search || undefined, type: filter.type, status: filter.status, source: filter.source },
         })
       ).data,
     getNextPageParam: (last, pages) => {
@@ -186,6 +211,37 @@ export function useSetFeedbackStatus(id: string) {
       void queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
   });
+}
+
+/** Đổi trạng thái 1 góp ý bất kỳ ngay từ danh sách admin (cùng endpoint với `useSetFeedbackStatus`). */
+export function useUpdateFeedbackStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; status: FeedbackStatus }) =>
+      (await api.patch<ApiResponse<FeedbackItem>>(`/feedback/${input.id}/reply`, { status: input.status })).data.data,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['feedback'] }),
+  });
+}
+
+/**
+ * Realtime cho Quản lý góp ý — class-be đẩy `feedback_changed` ({action, id, source}) trên namespace
+ * `/chat` tới phòng socket `role:admin` (chỉ socket của ADMIN nhận) mỗi khi có góp ý / báo cáo từ chat
+ * mới hoặc đổi trạng thái. App dùng lại socket chat sẵn có; nối lại thì làm mới luôn để bù sự kiện lỡ.
+ */
+export function useFeedbackRealtime(enabled = true) {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?._id);
+  useEffect(() => {
+    if (!enabled || !userId) return;
+    const socket = connectChatSocket();
+    const refresh = () => void queryClient.invalidateQueries({ queryKey: ['feedback'] });
+    socket.on('feedback_changed', refresh);
+    socket.io.on('reconnect', refresh);
+    return () => {
+      socket.off('feedback_changed', refresh);
+      socket.io.off('reconnect', refresh);
+    };
+  }, [enabled, userId, queryClient]);
 }
 
 export function useDeleteFeedback() {

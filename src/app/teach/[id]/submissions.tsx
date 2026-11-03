@@ -58,6 +58,15 @@ export default function ClassSubmissionsScreen() {
   const menu = useActionSheet();
 
   const open = async (s: ClassSubmissionItem) => {
+    // Bài SYM: submission chỉ là dấu "đã hoàn thành" (không có bài làm / nhận xét) → mở tiến độ bài nghe.
+    if (s.assignment_type?.code === 'sym')
+      return router.push({ pathname: '/teach/[id]/breakdown', params: { id, assignment: s.assignment_id, ...(group ? { group } : {}) } });
+    // TVST Business: máy tự chấm, kết quả nằm trong màn bài làm (không có /result) → mở bài của HV đó.
+    if (s.assignment_type?.code === 'tvst_business')
+      return router.push({
+        pathname: '/tvst-business/[assignmentId]',
+        params: { assignmentId: s.assignment_id, studentId: s.student_id, name: s.student_name },
+      });
     if (s.status === 'waiting_review' && canReview) return router.push({ pathname: '/grading/review/[id]', params: { id: s._id } });
     if (s.status === 'completed' || s.status === 'graded') return router.push({ pathname: '/result/[id]', params: { id: s._id, staff: '1' } });
     if (['submitted', 'reassigned', 'claimed', 'timeout'].includes(s.status) && canClaim) {
@@ -197,7 +206,14 @@ export default function ClassSubmissionsScreen() {
                     {s.assignment_title}
                   </Text>
                   <View className="flex-row flex-wrap items-center gap-1.5 pt-0.5">
-                    <Badge label={s.requires_grading === false || s.grading_exempt ? 'Không cần chấm' : st.label} tone={s.requires_grading === false || s.grading_exempt ? 'violet' : st.tone} />
+                    {s.assignment_type?.code === 'sym' ? (
+                      <>
+                        <Badge label="Speak Your Mind" tone="violet" />
+                        <Badge label="Hoàn thành" tone="success" />
+                      </>
+                    ) : (
+                      <Badge label={s.requires_grading === false || s.grading_exempt ? 'Không cần chấm' : st.label} tone={s.requires_grading === false || s.grading_exempt ? 'violet' : st.tone} />
+                    )}
                     {s.is_late ? <Badge label="Trễ" tone="warning" /> : null}
                     {s.attempt_number > 1 ? <Badge label={`Lần ${s.attempt_number}`} tone="neutral" /> : null}
                     <Text className="text-[11.5px] text-muted">{formatDateTime(s.submitted_at)}</Text>
@@ -229,6 +245,7 @@ export default function ClassSubmissionsScreen() {
           </Pressable>
         </View>
       ) : null}
+      {menu.sheet}
     </View>
   );
 }

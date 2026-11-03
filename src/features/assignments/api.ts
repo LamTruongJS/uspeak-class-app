@@ -32,6 +32,26 @@ export interface StudentAssignmentItem {
   session_number?: string;
   created_at: string;
   shadowing?: { parts_total: number; progress: { parts_completed: number } | null } | null;
+  /** Bài Speak Your Mind (assignment_type.code = 'sym') — tiến độ bài nghe chép, xem features/assignments/sym-action.ts */
+  sym?: SymAssignmentInfo | null;
+}
+
+export interface SymAssignmentInfo {
+  total: number;
+  level: 'easy' | 'medium' | 'hard' | null;
+  /** Phải đúng TRÊN mức này (% số từ) mới tính hoàn thành */
+  pass_score: number;
+  progress: {
+    status: 'in_progress' | 'completed';
+    done: number;
+    total: number;
+    /** 0–100; chưa xong thì tối đa 99 */
+    percent: number;
+    score: number;
+    attempts: number;
+    /** Đã làm xong ≥ 1 lần nhưng chưa lần nào đạt `pass_score` */
+    needs_retry: boolean;
+  } | null;
 }
 
 export interface StudentAssignmentsResponse {

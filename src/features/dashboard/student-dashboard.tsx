@@ -18,6 +18,7 @@ import { openAssignment } from '@/features/assignments/detail-api';
 import { useMyClasses, type StudentClassItem } from '@/features/classes/api';
 import { useJoinRoom } from '@/features/classes/use-join-room';
 import { useStudentSchedule } from '@/features/schedule/api';
+import { PendingSurveyBanner } from '@/features/surveys/pending-survey-banner';
 import { getErrorMessage } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
@@ -171,6 +172,8 @@ export function StudentDashboard({ data, shortcuts }: { data: ReturnType<typeof 
 
       {/* ── Danh mục ── */}
       {shortcuts}
+
+      <PendingSurveyBanner />
 
       <NextClassCard upcoming={upcoming} />
 

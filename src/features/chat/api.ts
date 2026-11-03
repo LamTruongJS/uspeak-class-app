@@ -447,4 +447,35 @@ export const chatApi = {
       height: img.height,
     }));
   },
+
+  /**
+   * Báo cáo vấn đề từ tin nhắn (web: feedback.api.ts reportFromChat) — mọi thành viên phòng gửi được,
+   * kể cả tin của chính mình; class-be lưu vào bảng feedback nguồn CHAT. Ảnh ≤10, ≤5MB, chỉ JPG/PNG/WebP
+   * → luôn nén lại thành JPEG (≤1600px) nên ảnh HEIC của iPhone cũng qua được bộ lọc của server.
+   */
+  reportIssue: async (input: {
+    roomId: string;
+    messageIds: string[];
+    message: string;
+    type: 'BUG' | 'FEATURE' | 'FEEDBACK' | 'OTHER';
+    images: { uri: string; width?: number; height?: number }[];
+    browser: string;
+  }) => {
+    const images = [];
+    for (const [i, a] of input.images.entries()) {
+      const w = a.width ?? 0;
+      const h = a.height ?? 0;
+      const resize = Math.max(w, h) > 1600 ? [{ resize: w >= h ? { width: 1600 } : { height: 1600 } }] : [];
+      const out = await manipulateAsync(a.uri, resize, { compress: 0.8, format: SaveFormat.JPEG });
+      images.push({ uri: out.uri, name: `issue-${Date.now()}-${i}.jpg`, type: 'image/jpeg' });
+    }
+    return uploadMultipart<ApiResponse<{ _id: string }>>(`/chat/rooms/${input.roomId}/issue-reports`, {
+      messageIds: JSON.stringify(input.messageIds),
+      message: input.message,
+      type: input.type,
+      currentUrl: `app://uspeak-class-app/chat/${input.roomId}`,
+      browser: input.browser,
+      ...(images.length ? { images } : {}),
+    });
+  },
 };

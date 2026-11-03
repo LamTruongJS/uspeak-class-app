@@ -24,6 +24,55 @@ export interface EarningsSummary {
   total_earnings: number;
   /** Chưa điền CCCD / tài khoản ngân hàng thì class-be từ chối tạo yêu cầu. */
   is_payment_info_filled: boolean;
+  /** Số bài / số tiền sẽ THẬT SỰ vào đợt kế tiếp (class-be đã cắt theo hạn mức tiền/đợt). BE cũ chưa có. */
+  next_request_submissions?: number;
+  next_request_amount?: number;
+  /** Hạn mức tiền của một đợt yêu cầu (BE: MAX_PAYMENT_REQUEST_AMOUNT). */
+  max_request_amount?: number;
+}
+
+/**
+ * Hạn mức tiền tối đa của MỘT đợt yêu cầu — bản sao MAX_PAYMENT_REQUEST_AMOUNT của class-be
+ * (src/xp/xp.config.ts), chỉ dùng khi BE chưa trả `max_request_amount`. BE mới là nơi chốt.
+ */
+export const MAX_PAYMENT_REQUEST_AMOUNT = 5_000_000;
+
+export interface NextPaymentRequestPlan {
+  /** Số bài sẽ vào đợt kế tiếp (đã cắt theo hạn mức tiền) */
+  count: number;
+  /** Tổng tiền của đợt kế tiếp */
+  amount: number;
+  maxAmount: number;
+  /** true = còn bài dư, để cho đợt sau */
+  isCapped: boolean;
+  leftoverCount: number;
+  /** Lý do chặn nút gửi vì hạn mức (null = không chặn vì hạn mức) */
+  blockReason: string | null;
+  thresholdReached: boolean;
+}
+
+/**
+ * Đợt yêu cầu kế tiếp — port `getNextPaymentRequestPlan` của web (stores/payment/payment.constants.ts),
+ * dùng chung cho màn Yêu cầu thanh toán và Thống kê để hai nơi báo cùng một con số. BE cắt đợt theo
+ * bài chấm sớm nhất tới khi chạm hạn mức nên tồn nhiều bài vẫn gửi được; chỉ chặn khi sau khi cắt
+ * không còn đủ ngưỡng bài (đơn giá quá cao). `remaining_submissions` = `unpaid_count` của web.
+ * Khác web một chỗ: ngưỡng 0 (cấu hình chưa tải) coi như không có ngưỡng — giữ cách app đang làm.
+ */
+export function getNextPaymentRequestPlan(earnings: EarningsSummary | undefined, threshold: number): NextPaymentRequestPlan {
+  const unpaid = earnings?.remaining_submissions ?? 0;
+  const maxAmount = earnings?.max_request_amount ?? MAX_PAYMENT_REQUEST_AMOUNT;
+  const count = earnings?.next_request_submissions ?? unpaid;
+  const amount = earnings?.next_request_amount ?? earnings?.remaining_amount ?? 0;
+  const leftoverCount = Math.max(0, unpaid - count);
+  const thresholdReached = unpaid > 0 && unpaid >= threshold;
+
+  let blockReason: string | null = null;
+  if (thresholdReached && count < threshold) {
+    blockReason = `Với đơn giá hiện tại, ${threshold} bài đã vượt hạn mức ${formatMoney(maxAmount)}/đợt nên chưa gửi được. Vui lòng liên hệ Admin.`;
+  } else if (thresholdReached && amount > maxAmount) {
+    blockReason = `Tổng tiền đợt này (${formatMoney(amount)}) vượt hạn mức ${formatMoney(maxAmount)}/đợt. Vui lòng liên hệ Admin để kiểm tra đơn giá.`;
+  }
+  return { count, amount, maxAmount, isCapped: leftoverCount > 0, leftoverCount, blockReason, thresholdReached };
 }
 
 export type PaymentRequestStatus = 'pending' | 'approved' | 'rejected' | 'paid' | (string & {});

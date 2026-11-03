@@ -18,7 +18,9 @@ import {
   useFeedbackDetail,
   useSetFeedbackStatus,
   type FeedbackImage,
+  type FeedbackStatus,
 } from '@/features/feedback/api';
+import { openFeedbackChat } from '@/features/feedback/open-chat';
 import { useActionSheet } from '@/components/ui/action-sheet';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDateTime } from '@/lib/format';
@@ -57,10 +59,10 @@ export default function FeedbackDetailScreen() {
   const threadMessages =
     thread.length && thread[0].senderType === 'USER' && thread[0].message === data?.message ? thread.slice(1) : thread;
 
-  async function changeStatus(next: 'REPLIED' | 'CLOSED') {
+  async function changeStatus(next: FeedbackStatus) {
     try {
       await setStatus.mutateAsync(next);
-      showToast('success', next === 'CLOSED' ? 'Đã đóng góp ý' : 'Đã mở lại góp ý');
+      showToast('success', next === 'CLOSED' ? 'Đã đóng góp ý' : next === 'RESOLVED' ? 'Đã đánh dấu đã xử lý' : 'Đã mở lại góp ý');
     } catch (err) {
       showToast('error', 'Chưa đổi được trạng thái', getErrorMessage(err));
     }
@@ -71,6 +73,13 @@ export default function FeedbackDetailScreen() {
     sheet.show({
       title: data.userName || 'Góp ý',
       actions: [
+        // Trạng thái RESOLVED (web từ 27/10): đã xử lý xong vấn đề nhưng chưa đóng luồng trao đổi
+        ...(data.status !== 'RESOLVED' && !closed
+          ? [{ label: 'Đánh dấu đã xử lý', icon: 'checkmark-circle-outline' as const, onPress: () => void changeStatus('RESOLVED') }]
+          : []),
+        ...(data.chatContext?.roomId
+          ? [{ label: 'Mở cuộc trò chuyện', icon: 'chatbubbles-outline' as const, onPress: () => openFeedbackChat(data) }]
+          : []),
         closed
           ? { label: 'Mở lại góp ý', icon: 'refresh-outline', onPress: () => void changeStatus('REPLIED') }
           : { label: 'Đóng góp ý', icon: 'checkmark-done-outline', onPress: () => void changeStatus('CLOSED') },
@@ -156,7 +165,23 @@ export default function FeedbackDetailScreen() {
               <View className="flex-row items-center gap-2">
                 <Badge label={FEEDBACK_TYPE_LABEL[data.type] ?? data.type} tone="info" />
                 {status ? <Badge label={status.label} tone={status.tone} /> : null}
+                {data.source === 'CHAT' ? <Badge label="Từ chat" tone="violet" /> : null}
               </View>
+              {isAdmin && data.chatContext?.roomId ? (
+                <Pressable onPress={() => openFeedbackChat(data)} className="flex-row items-center gap-2 rounded-2xl bg-surface p-3 active:opacity-80">
+                  <Ionicons name="chatbubbles-outline" size={18} color={brand} />
+                  <Text className="flex-1 text-[13px] text-foreground" numberOfLines={2}>
+                    {[data.chatContext.studentName, data.chatContext.roomName].filter(Boolean).join(' · ')}
+                  </Text>
+                  <Text className="text-[13px] font-semibold text-brand">Mở chat</Text>
+                </Pressable>
+              ) : null}
+              {data.resolvedAt ? (
+                <Text className="text-[12px] text-muted">
+                  Xử lý {formatDateTime(data.resolvedAt)}
+                  {data.resolvedByName ? ` · ${data.resolvedByName}` : ''}
+                </Text>
+              ) : null}
 
               <Bubble
                 mine={!isAdmin}

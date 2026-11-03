@@ -230,8 +230,13 @@ export function useAssignmentTypes() {
     queryKey: ['assignments', 'types'],
     staleTime: 10 * 60_000,
     queryFn: async () => (await api.get<{ data: AssignmentType[] }>('/assignments/types')).data.data ?? [],
+    // TVST Business chỉ giao từ cây E-Learning (web cũng ẩn); SYM cần chọn bài nghe + mức (`sym_target`,
+    // GET /assignments/sym/catalog) — form app chưa có nên giao 2 loại này trên web.
+    select: (types: AssignmentType[]) => types.filter((t) => !APP_HIDDEN_TYPES.includes(t.code)),
   });
 }
+
+const APP_HIDDEN_TYPES = ['tvst_business', 'sym'];
 
 export interface RubricTemplate {
   _id: string;

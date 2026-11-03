@@ -10,6 +10,7 @@ import { showToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HtmlView } from '@/components/ui/html-view';
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { WEB_URL } from '@/config/env';
 import {
@@ -26,6 +27,12 @@ import {
   type LessonVideo,
   type PracticeLesson,
 } from '@/features/elearning/api';
+import { ListenDictationPractice } from '@/features/dictation/listen-dictation-practice';
+import type { DictationLesson } from '@/features/dictation/types';
+import { SymPractice } from '@/features/elearning/sym/sym-practice';
+import { TvstBusinessPractice } from '@/features/tvst/tvst-business-practice';
+import type { TvstBizContent } from '@/features/tvst/types';
+import type { SymContent } from '@/features/elearning/sym/types';
 import { getErrorMessage } from '@/lib/api/client';
 import { useThemeColor } from '@/theme/use-theme-color';
 
@@ -121,9 +128,9 @@ export default function ElearningItemScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoider className="flex-1 bg-background">
       <Stack.Screen options={{ title: nodeTitle(node) }} />
-      <ScrollView contentContainerClassName="gap-4 p-4 pb-10">
+      <ScrollView contentContainerClassName="gap-4 p-4 pb-10" keyboardShouldPersistTaps="handled">
         <View className="flex-row items-center gap-2">
           <Badge label={NODE_LABEL[node.type] ?? 'Nội dung'} tone="brand" />
           {node.is_completed ? <Badge label="Đã học xong" tone="success" /> : null}
@@ -149,7 +156,7 @@ export default function ElearningItemScreen() {
 
         {tree.isFetching ? <ActivityIndicator color={brand} /> : null}
       </ScrollView>
-    </View>
+    </KeyboardAvoider>
   );
 }
 
@@ -238,6 +245,22 @@ interface PracticeSection {
  * mở bản web — xem mục 5 của docs/HANDOFF.md.
  */
 function PracticeBlock({ classId, lesson }: { classId: string; lesson: PracticeLesson }) {
+  // Speak Your Mind làm native đầy đủ (Nghe audio + Điền từ), không cần mở web
+  if (lesson.practice_type === 'shape_your_mind') {
+    return <SymPractice classId={classId} practiceId={lesson._id} content={lesson.content as SymContent} />;
+  }
+  // Nghe chép chính tả: native (features/dictation), cùng API + luật chấm với web DictationRenderer
+  if (lesson.practice_type === 'listen_dictation') {
+    return <ListenDictationPractice classId={classId} practiceId={lesson._id} content={lesson.content as { units?: DictationLesson[] }} />;
+  }
+  // Từ Vựng Siêu Tốc đi làm: STEP 1–3 tài liệu (+ STEP 4–6 với bài giao trước 02/11/2026) — native ở features/tvst
+  if (lesson.practice_type === 'tvst_business') {
+    return <TvstBusinessPractice classId={classId} practiceId={lesson._id} content={lesson.content as unknown as TvstBizContent} />;
+  }
+  return <TextPracticeBlock classId={classId} lesson={lesson} />;
+}
+
+function TextPracticeBlock({ classId, lesson }: { classId: string; lesson: PracticeLesson }) {
   const content = lesson.content as { sections?: PracticeSection[]; theory_html?: string } | undefined;
   const sections = useMemo(
     () => [...(content?.sections ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),

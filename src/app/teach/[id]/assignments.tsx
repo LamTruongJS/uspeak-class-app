@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { showToast } from '@/components/ui/toast';
 import { useActionSheet, type SheetAction } from '@/components/ui/action-sheet';
@@ -16,8 +16,9 @@ import { usePullRefresh } from '@/lib/use-pull-refresh';
 import { useThemeColor } from '@/theme/use-theme-color';
 
 /**
- * Bài tập của lớp (nhân sự) — bấm thẻ để xem tỷ lệ nộp; nút ⋯ (quyền ASSIGNMENT_DUPLICATE / ASSIGNMENT_DELETE
- * như web, trừ bài Shadowing) để sửa / nhân bản / xoá; nút + tạo bài mới (assignment-editor/*).
+ * Bài tập của lớp (nhân sự) — bấm thẻ để xem tỷ lệ nộp; nút ⋯: Danh sách nộp bài / Tiến độ học viên
+ * (`teach/[id]/breakdown`, bài SYM hiện tiến độ bài nghe) + sửa / nhân bản / xoá theo quyền ASSIGNMENT_*
+ * như web (trừ bài Shadowing); nút + tạo bài mới (assignment-editor/*).
  */
 export default function ClassAssignmentsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,9 +52,23 @@ export default function ClassAssignmentsScreen() {
     }
   };
 
+  // Bài Shadowing / Speak Your Mind không có "nộp" → mục mở ra là tiến độ học viên (y web AssignmentsTab).
+  const isProgressType = (a: (typeof items)[number]) => !!a.shadowing || a.assignment_type?.code === 'sym';
+  const openBreakdown = (a: (typeof items)[number]) =>
+    router.push({ pathname: '/teach/[id]/breakdown', params: { id, assignment: a._id, type: a.assignment_type?.code ?? '' } });
+
   const more = (a: (typeof items)[number]) => {
-    const opts: SheetAction[] = [];
-    if (canEdit)
+    const opts: SheetAction[] = [
+      {
+        label: isProgressType(a) ? 'Tiến độ học viên' : 'Danh sách nộp bài',
+        icon: isProgressType(a) ? 'stats-chart-outline' : 'document-text-outline',
+        onPress: () => openBreakdown(a),
+      },
+    ];
+    if (a.shadowing) return menu.show({ title: a.title, actions: opts });
+    // Form sửa của app chưa có phần chọn bài nghe + mức của SYM (`sym_target`) → sửa bài SYM trên web.
+    // SYM (cần sym_target) và TVST Business (giao từ cây E-Learning) — form app không sửa được, sửa trên web.
+    if (canEdit && !['sym', 'tvst_business'].includes(a.assignment_type?.code ?? ''))
       opts.push({
         label: 'Sửa bài tập',
         icon: 'create-outline',
@@ -113,8 +128,18 @@ export default function ClassAssignmentsScreen() {
               expanded={expandedId === item._id}
               overdue={!!item.submission_deadline && new Date(item.submission_deadline).getTime() < now}
               onToggle={() => setExpandedId((c) => (c === item._id ? null : item._id))}
-              onMore={(canEdit || canDup || canDel) && !item.shadowing ? () => more(item) : undefined}
+              onMore={() => more(item)}
             />
+            {expandedId === item._id ? (
+              <Pressable
+                onPress={() => openBreakdown(item)}
+                className="mt-1.5 h-10 flex-row items-center justify-center gap-1.5 rounded-2xl bg-brand-soft active:opacity-80">
+                <Ionicons name={isProgressType(item) ? 'stats-chart-outline' : 'people-outline'} size={16} color={brand} />
+                <Text className="text-[13.5px] font-semibold text-brand">
+                  {isProgressType(item) ? 'Xem tiến độ từng học viên' : 'Xem danh sách nộp bài'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
         ListEmptyComponent={
@@ -144,6 +169,7 @@ export default function ClassAssignmentsScreen() {
         ListFooterComponent={assignments.isFetchingNextPage ? <ActivityIndicator className="py-3" color={brand} /> : null}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={brand} colors={[brand]} />}
       />
+      {menu.sheet}
     </View>
   );
 }

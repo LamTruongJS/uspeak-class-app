@@ -300,9 +300,13 @@ export function extractSubmissionId(response: unknown): string | null {
 // ─── Điều hướng ─────────────────────────────────────────────────────────────
 
 /** Mở bài tập từ danh sách: đã nhận xét → trang kết quả; còn lại → trang làm bài (luật bên web). */
-export function openAssignment(item: Pick<StudentAssignmentItem, '_id' | 'student_status' | 'submission' | 'shadowing'>) {
+export function openAssignment(
+  item: Pick<StudentAssignmentItem, '_id' | 'student_status' | 'submission' | 'shadowing' | 'assignment_type'>,
+) {
   const graded = item.student_status === 'graded' || item.submission?.status === 'graded';
-  if (graded && item.submission?._id && !item.shadowing) {
+  // SYM / TVST Business không có trang kết quả chung — màn bài tập tự hiện kết quả (như web).
+  const ownResult = ['sym', 'tvst_business'].includes(item.assignment_type?.code ?? '');
+  if (graded && item.submission?._id && !item.shadowing && !ownResult) {
     router.push({ pathname: '/result/[id]', params: { id: item.submission._id } });
   } else {
     router.push({ pathname: '/assignment/[id]', params: { id: item._id } });

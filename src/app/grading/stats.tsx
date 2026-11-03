@@ -19,7 +19,7 @@ import {
 } from '@/features/assignments/management-api';
 import { useMyPermissionCodes } from '@/features/chat/api';
 import { AreaChart } from '@/features/dashboard/area-chart';
-import { formatMoney, useMyEarnings, usePaymentThreshold } from '@/features/payment/api';
+import { formatMoney, getNextPaymentRequestPlan, useMyEarnings, usePaymentThreshold } from '@/features/payment/api';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { usePullRefresh } from '@/lib/use-pull-refresh';
@@ -63,6 +63,8 @@ export default function GradingStatsScreen() {
   const empty = ts.every((d) => !d.graded && !d.timeout && !d.regrade && !d.waitingReview);
   const e = earnings.data;
   const min = threshold.data ?? 0;
+  // Đợt kế tiếp đã cắt theo hạn mức tiền/đợt — cùng helper với màn Yêu cầu thanh toán (web: reports/page.tsx).
+  const plan = getNextPaymentRequestPlan(e, min);
 
   return (
     <View className="flex-1 bg-background">
@@ -150,10 +152,18 @@ export default function GradingStatsScreen() {
                 </View>
                 <Text className="text-[12px] text-muted">
                   {e.remaining_submissions >= min
-                    ? `Đủ ${min} bài — bấm để gửi yêu cầu thanh toán`
+                    ? `Đủ ${min} bài — bấm để gửi yêu cầu thanh toán ${plan.count} bài`
                     : `${e.remaining_submissions}/${min} bài · cần thêm ${min - e.remaining_submissions} bài để yêu cầu thanh toán`}
                   {paid.data?.total_batches_paid ? ` · ${paid.data.total_batches_paid} đợt đã trả` : ''}
                 </Text>
+                {plan.blockReason ? (
+                  <Text className="text-[12px] leading-[17px] text-danger">{plan.blockReason}</Text>
+                ) : plan.thresholdReached && plan.isCapped ? (
+                  <Text className="text-[12px] leading-[17px] text-warning">
+                    Mỗi đợt tối đa {formatMoney(plan.maxAmount)} — đợt này gồm {plan.count} bài chấm sớm nhất ({formatMoney(plan.amount)}),{' '}
+                    {plan.leftoverCount} bài còn lại để đợt sau.
+                  </Text>
+                ) : null}
               </View>
             ) : null}
           </Pressable>

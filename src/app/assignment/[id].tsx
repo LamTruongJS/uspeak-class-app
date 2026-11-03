@@ -14,11 +14,14 @@ import {
   TestTemplateNotice,
   VideoSubmit,
 } from '@/features/assignments/submit/submit-forms';
+import { SymAssignment } from '@/features/assignments/sym-assignment';
+import { ClassLockedView, classLockOf } from '@/features/classes/class-locked';
+import { TvstBusinessAssignment } from '@/features/tvst/tvst-business-assignment';
 import { getErrorMessage } from '@/lib/api/client';
 
 /**
  * Làm / nộp bài tập — port từ uspeak-class-fe my-assignments/[id]/submit/page.tsx.
- * Chọn giao diện theo assignment_type.code: quiz · image_upload · multi_task · shadowing · (còn lại) video.
+ * Chọn giao diện theo assignment_type.code: quiz · sym · tvst_business · image_upload · multi_task · shadowing · (còn lại) video.
  */
 export default function AssignmentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +35,15 @@ export default function AssignmentScreen() {
     );
   }
   if (isError || !assignment) {
+    // Bị khoá quyền vào lớp (403 CLASS_ACCESS_LOCKED, VD mở từ thông báo) → báo rõ + hotline như web.
+    const lock = classLockOf(error);
+    if (lock) {
+      return (
+        <Shell title="Bài tập">
+          <ClassLockedView reason={lock.reason} />
+        </Shell>
+      );
+    }
     return (
       <Shell title="Bài tập">
         <StateView
@@ -47,6 +59,32 @@ export default function AssignmentScreen() {
 
   const type = assignment.assignment_type?.code;
   const header = <AssignmentHeader assignment={assignment} />;
+
+  // Speak Your Mind: nghe chép chính tả làm ngay trong app, không có nút nộp / trang kết quả.
+  if (type === 'sym') {
+    return (
+      <Shell title="Speak Your Mind">
+        <KeyboardAvoider>
+          <ScrollView contentContainerClassName="p-4 pb-12" keyboardShouldPersistTaps="handled">
+            <SymAssignment assignmentId={assignment._id} />
+          </ScrollView>
+        </KeyboardAvoider>
+      </Shell>
+    );
+  }
+
+  // TVST Business (STEP 4–6 tự chấm thang 10): kết quả hiện ngay trên màn làm bài, không có /result.
+  if (type === 'tvst_business') {
+    return (
+      <Shell title="TVST đi làm">
+        <KeyboardAvoider>
+          <ScrollView contentContainerClassName="p-4 pb-12" keyboardShouldPersistTaps="handled">
+            <TvstBusinessAssignment assignmentId={assignment._id} />
+          </ScrollView>
+        </KeyboardAvoider>
+      </Shell>
+    );
+  }
 
   if (type === 'quiz') {
     // Quiz đã nộp xong → mở thẳng trang kết quả. Mở form làm bài là "mất điểm":
