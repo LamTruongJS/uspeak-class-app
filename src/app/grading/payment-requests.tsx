@@ -13,6 +13,7 @@ import { PaymentInfoSheet } from '@/features/auth/payment-info-sheet';
 import { findBank } from '@/features/auth/vietqr-banks';
 import {
   formatMoney,
+  getNextPaymentRequestPlan,
   PAYMENT_STATUS_VIEW,
   SUBMISSION_PAYMENT_VIEW,
   useMyEarnings,
@@ -63,6 +64,8 @@ export default function PaymentRequestsScreen() {
   const data = earnings.data;
   const min = threshold.data ?? 0;
   const hasPending = requests.data?.has_pending ?? false;
+  // Đợt kế tiếp đã cắt theo hạn mức tiền/đợt — số bài/số tiền ở đây là con số class-be sẽ ghi.
+  const plan = getNextPaymentRequestPlan(data, min);
   const pi = user?.payment_info;
   const checks = [
     { key: 'contact', label: 'Liên lạc', ok: !!(user?.email && user?.phone), hint: user?.phone || 'Thiếu số điện thoại' },
@@ -93,7 +96,7 @@ export default function PaymentRequestsScreen() {
           ? 'Chưa có bài nào chưa được tính tiền.'
           : min > 0 && data.remaining_submissions < min
             ? `Cần tối thiểu ${min} bài chưa thanh toán (còn thiếu ${min - data.remaining_submissions} bài).`
-            : null;
+            : plan.blockReason;
 
   const subList = useMemo(() => submissions.data?.data ?? [], [submissions.data]);
   const rows: Row[] = useMemo(
@@ -138,6 +141,16 @@ export default function PaymentRequestsScreen() {
             {data.remaining_submissions} bài chưa yêu cầu · {formatMoney(data.current_rate)}/bài
           </Text>
         </View>
+        {plan.thresholdReached ? (
+          <View className="flex-row items-center justify-between gap-2 rounded-2xl bg-white/15 px-3.5 py-2.5">
+            <Text className="text-[13px] text-white/85">
+              Đợt này: <Text className="font-bold text-white">{plan.count} bài</Text>
+            </Text>
+            <Text className="shrink text-right text-[13px] text-white/85">
+              <Text className="font-bold text-white">{formatMoney(plan.amount)}</Text> / hạn mức {formatMoney(plan.maxAmount)}
+            </Text>
+          </View>
+        ) : null}
         {min > 0 ? (
           <View className="gap-1.5">
             <View className="h-2 overflow-hidden rounded-full bg-white/25">
@@ -153,9 +166,17 @@ export default function PaymentRequestsScreen() {
           disabled={!!blocker}
           className={`h-12 flex-row items-center justify-center gap-2 rounded-2xl ${blocker ? 'bg-white/20' : 'bg-white active:opacity-85'}`}>
           <Ionicons name={blocker ? 'lock-closed' : 'send'} size={17} color={blocker ? '#ffffffb3' : brand} />
-          <Text className={`text-[15px] font-bold ${blocker ? 'text-white/75' : 'text-brand'}`}>Gửi yêu cầu thanh toán</Text>
+          <Text className={`text-[15px] font-bold ${blocker ? 'text-white/75' : 'text-brand'}`}>
+            {!blocker ? `Yêu cầu thanh toán ${plan.count} bài` : plan.blockReason && blocker === plan.blockReason ? 'Vượt hạn mức thanh toán' : 'Gửi yêu cầu thanh toán'}
+          </Text>
         </Pressable>
         {blocker ? <Text className="text-center text-[12.5px] text-white/85">{blocker}</Text> : null}
+        {!blocker && plan.isCapped ? (
+          <Text className="text-center text-[12.5px] leading-[18px] text-white/85">
+            {data.remaining_submissions} bài vượt hạn mức {formatMoney(plan.maxAmount)}/đợt, nên đợt này chỉ gồm {plan.count} bài chấm sớm nhất.{' '}
+            {plan.leftoverCount} bài còn lại vẫn được giữ để gửi ở đợt sau.
+          </Text>
+        ) : null}
       </View>
 
       {/* ── Số liệu ── */}
@@ -199,6 +220,7 @@ export default function PaymentRequestsScreen() {
           ? [
               'Chỉ tính bài đã nhận xét xong và được Reviewer duyệt.',
               `Cần tối thiểu ${min || '—'} bài chưa thanh toán mới gửi được. Gửi xong số bài được chốt và đếm lại từ đầu.`,
+              `Mỗi đợt tối đa ${formatMoney(plan.maxAmount)}. Nhiều bài hơn hạn mức thì hệ thống lấy các bài chấm sớm nhất vừa đủ hạn mức, phần còn lại giữ nguyên để gửi ở đợt sau.`,
               'Mỗi lần chỉ có 1 yêu cầu chờ duyệt; yêu cầu sau gửi được khi yêu cầu trước đã duyệt hoặc từ chối.',
               'Hồ sơ phải đủ: họ tên, email, SĐT, ngân hàng, số tài khoản, chủ tài khoản, CCCD (số, ngày cấp, nơi cấp).',
             ].map((t) => (
@@ -262,9 +284,11 @@ export default function PaymentRequestsScreen() {
 
       <RequestSheet
         open={sheet === 'request'}
-        count={data.remaining_submissions}
+        count={plan.count}
         rate={data.current_rate}
-        amount={data.remaining_amount}
+        amount={plan.amount}
+        maxAmount={plan.maxAmount}
+        leftoverCount={plan.leftoverCount}
         onClose={() => setSheet(null)}
       />
       <PaymentInfoSheet visible={sheet === 'payment'} onClose={() => setSheet(null)} />
@@ -350,7 +374,23 @@ function SubmissionRow({ item }: { item: GradedSubmissionPayment }) {
 }
 
 /** Xác nhận gửi: tóm tắt số bài × đơn giá + ghi chú (bắt buộc, giống web). */
-function RequestSheet({ open, count, rate, amount, onClose }: { open: boolean; count: number; rate: number; amount: number; onClose: () => void }) {
+function RequestSheet({
+  open,
+  count,
+  rate,
+  amount,
+  maxAmount,
+  leftoverCount,
+  onClose,
+}: {
+  open: boolean;
+  count: number;
+  rate: number;
+  amount: number;
+  maxAmount: number;
+  leftoverCount: number;
+  onClose: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const muted = useThemeColor('muted');
   const submit = useSubmitPaymentRequest();
@@ -383,6 +423,7 @@ function RequestSheet({ open, count, rate, amount, onClose }: { open: boolean; c
               ['Số bài', `${count} bài`],
               ['Đơn giá hiện tại', `${formatMoney(rate)}/bài`],
               ['Tạm tính', formatMoney(amount)],
+              ['Hạn mức mỗi đợt', formatMoney(maxAmount)],
             ].map(([k, v], i) => (
               <View key={k} className={`flex-row items-center justify-between px-4 py-3 ${i ? 'border-t border-border' : ''}`}>
                 <Text className="text-[14px] text-muted">{k}</Text>
@@ -390,6 +431,11 @@ function RequestSheet({ open, count, rate, amount, onClose }: { open: boolean; c
               </View>
             ))}
           </View>
+          {leftoverCount > 0 ? (
+            <Text className="text-[12.5px] leading-[18px] text-warning">
+              {leftoverCount} bài còn lại (chấm sau) không nằm trong đợt này và sẽ được gửi ở đợt sau.
+            </Text>
+          ) : null}
           <Text className="text-[12px] leading-4 text-muted">
             Số tiền chính xác tính theo đơn giá chốt ở từng bài lúc chấm — kế toán xác nhận khi duyệt.
           </Text>

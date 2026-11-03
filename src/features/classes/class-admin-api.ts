@@ -93,6 +93,93 @@ export function useSubmissionAdmin() {
   return { bulkReview, remove };
 }
 
+// ─── Danh sách nộp bài của 1 bài tập (web SubmissionBreakdownModal) ─────────
+
+export type SymLevel = 'easy' | 'medium' | 'hard';
+export const SYM_LEVEL_LABEL: Record<SymLevel, string> = { easy: 'Dễ', medium: 'Vừa', hard: 'Khó' };
+
+/** Tiến độ Speak Your Mind của 1 học viên — class-be `symAssignmentService.toView(...).progress`. */
+export interface SymStudentProgress {
+  status: 'in_progress' | 'completed';
+  /** Số câu đã bấm Kiểm tra trong lần làm hiện tại */
+  done: number;
+  total: number;
+  /** 0–100; chưa xong thì tối đa 99 */
+  percent: number;
+  level: SymLevel;
+  /** Điểm % cao nhất các lần làm xong */
+  score: number;
+  attempts: number;
+  /** Đã làm xong ≥ 1 lần nhưng chưa lần nào đúng TRÊN `pass_score` → phải làm lại */
+  needs_retry: boolean;
+  is_late: boolean;
+  completed_at: string | null;
+  last_activity_at: string | null;
+}
+
+export interface SymBreakdownInfo {
+  exercise_title: string;
+  unit_title: string;
+  /** Số câu của bài nghe */
+  total: number;
+  /** null = bài giao trước khi có chọn mức (học viên tự chọn) */
+  level: SymLevel | null;
+  pass_score: number;
+}
+
+export interface ShadowingStudentProgress {
+  status: 'assigned' | 'in_progress' | 'completed';
+  parts_completed: number;
+  parts_total: number;
+  accuracy: number | null;
+  practice_minutes: number;
+  last_activity_at?: string | null;
+}
+
+export interface BreakdownStudent {
+  _id: string;
+  name: string;
+  email?: string;
+  submission_id?: string;
+  submitted_at?: string;
+  status?: string;
+  graded_at?: string | null;
+  grader_name?: string;
+  score?: number | null;
+  max_score?: number | null;
+  grading_exempt?: boolean;
+  group_name?: string;
+  /** Chỉ có ở bài Shadowing */
+  shadowing_progress?: ShadowingStudentProgress | null;
+  /** Chỉ có ở bài Speak Your Mind (null = chưa làm) */
+  sym_progress?: SymStudentProgress | null;
+}
+
+export interface SubmissionBreakdown {
+  assignment_id: string;
+  assignment_title: string;
+  requires_grading?: boolean;
+  shadowing?: { parts_total: number; min_accuracy: number; targets_label?: string } | null;
+  /** Bài SYM: "nộp" = làm xong bài nghe đúng TRÊN pass_score (BE ghi submission `completed`) */
+  sym?: SymBreakdownInfo | null;
+  on_time: BreakdownStudent[];
+  late: BreakdownStudent[];
+  not_submitted: BreakdownStudent[];
+}
+
+/** GET /assignments/:id/submission-breakdown — trả object trần (không bọc `data`). */
+export function useSubmissionBreakdown(assignmentId: string) {
+  return useQuery({
+    queryKey: ['assignments', 'submission-breakdown', assignmentId],
+    enabled: !!assignmentId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const body = (await api.get<SubmissionBreakdown | { data: SubmissionBreakdown }>(`/assignments/${assignmentId}/submission-breakdown`)).data;
+      return 'on_time' in body ? body : body.data;
+    },
+  });
+}
+
 // ─── Không cần nhận xét ─────────────────────────────────────────────────────
 
 export interface GradingExemption {

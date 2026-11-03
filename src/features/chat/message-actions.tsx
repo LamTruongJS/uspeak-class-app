@@ -26,13 +26,27 @@ interface Props {
   onPin: (m: ChatMessage, pinned: boolean) => void;
   onForward: (m: ChatMessage) => void;
   onRecall: (m: ChatMessage) => void;
+  /** Báo cáo vấn đề — ai cũng báo được, kể cả tin của chính mình (web: MessagePopovers report_issue). */
+  onReportIssue?: (m: ChatMessage) => void;
 }
 
 /**
  * Menu nhấn giữ: hàng cảm xúc nhanh + các thao tác. Thao tác nào hiện là theo quyền của phòng
  * (settings.my_permissions) — server vẫn kiểm lại, ẩn ở đây chỉ để khỏi bấm vào rồi báo lỗi.
  */
-export function MessageActions({ message, myId, permissions, onClose, onReact, onReply, onEdit, onPin, onForward, onRecall }: Props) {
+export function MessageActions({
+  message,
+  myId,
+  permissions,
+  onClose,
+  onReact,
+  onReply,
+  onEdit,
+  onPin,
+  onForward,
+  onRecall,
+  onReportIssue,
+}: Props) {
   const insets = useSafeAreaInsets();
   if (!message) return null;
   const mine = message.sender?._id === myId;
@@ -72,6 +86,9 @@ export function MessageActions({ message, myId, permissions, onClose, onReact, o
             onPress: () => onPin(message, !message.is_pinned),
           } as ActionDef,
         ]
+      : []),
+    ...(onReportIssue && !message.is_deleted && !message.recalled_by && !message.deleted_by
+      ? [{ key: 'report', icon: 'flag-outline', label: 'Báo cáo', onPress: () => onReportIssue(message) } as ActionDef]
       : []),
     ...(canRecall ? [{ key: 'recall', icon: 'trash', label: 'Thu hồi', danger: true, onPress: () => onRecall(message) } as ActionDef] : []),
   ];

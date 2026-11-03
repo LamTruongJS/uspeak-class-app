@@ -75,7 +75,9 @@ export const FEATURES: AppFeature[] = [
   { key: 'documents', label: 'Tài liệu', icon: 'folder-open-outline', group: 'learn', roles: ALL, phase: 2, status: 'ready', route: '/documents', permission: 'DOCUMENT_VIEW' },
   { key: 'wiki', label: 'Wiki', icon: 'library-outline', group: 'learn', roles: ALL, phase: 2, status: 'ready', route: '/wiki', permission: 'WIKI_VIEW' },
   { key: 'guide', label: 'Hướng dẫn sử dụng', icon: 'help-buoy-outline', group: 'learn', roles: ALL, phase: 2, status: 'ready', route: '/wiki?space=guide', permission: 'GUIDE_VIEW' },
-  { key: 'class-surveys', label: 'Phiếu khảo sát', icon: 'clipboard-outline', group: 'learn', roles: ['ST'], phase: 1, status: 'ready', route: '/class-surveys' },
+  // Web: menu "Khảo sát" (/surveys — khảo sát chung + khảo sát lớp). Đường dẫn /surveys của app đã là Khảo sát đầu vào.
+  // Cố ý KHÔNG gắn quyền SURVEY_STUDENT_VIEW như web: mục này trước giờ ai là HV cũng thấy, prod chưa chắc đã seed quyền.
+  { key: 'class-surveys', label: 'Khảo sát', icon: 'clipboard-outline', group: 'learn', roles: ['ST'], phase: 1, status: 'ready', route: '/class-surveys' },
   { key: 'my-certificates', label: 'Chứng chỉ học tập', icon: 'ribbon-outline', group: 'learn', roles: ['ST'], phase: 2, status: 'ready', route: '/certificates', permission: 'MY_CERTIFICATES_VIEW' },
   { key: 'open-courses', label: 'Khoá học mở đăng ký', icon: 'megaphone-outline', group: 'learn', roles: ['ST'], phase: 2, status: 'ready', route: '/open-courses', permission: 'OPEN_COURSES_VIEW' },
   { key: 'course-privileges', label: 'Đăng kí lớp UspeakPro', icon: 'star-outline', group: 'learn', roles: ['ST'], phase: 2, status: 'ready', route: '/pro-register', permission: 'COURSE_PRIVILEGES_VIEW' },
@@ -115,6 +117,9 @@ export const FEATURES: AppFeature[] = [
   { key: 'permissions', label: 'Phân quyền hệ thống', icon: 'shield-checkmark-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'web', webPath: '/permissions', permission: 'PERMISSION_MANAGE' },
   { key: 'payment-settings', label: 'Cài đặt thanh toán', icon: 'card-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/payment-settings', permission: 'PAYMENT_SETTINGS_MANAGE' },
   { key: 'admin-feedback', label: 'Quản lý góp ý', icon: 'mail-unread-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/admin/feedback', permission: 'FEEDBACK_MANAGE' },
+  // Quyền 2 màn dưới seed cho AD (class-be seed:student-info / seed:video-transcripts); vai trò khác cần được CRM gán thêm.
+  { key: 'student-info', label: 'Thông tin học viên', icon: 'id-card-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/student-info', permission: 'STUDENT_INFO_VIEW' },
+  { key: 'video-scripts', label: 'Script video', icon: 'reader-outline', group: 'admin', roles: ['AD'], phase: 4, status: 'ready', route: '/video-scripts', permission: 'VIDEO_TRANSCRIPT_MANAGE' },
   { key: 'certificate-editor', label: 'Editor mẫu chứng chỉ', icon: 'brush-outline', group: 'admin', roles: ['AD', 'TE'], phase: 4, status: 'web', webPath: '/certificate-template-editor', permission: 'CERTIFICATE_TEMPLATE_EDITOR_VIEW' },
 
   // ── Tài khoản ───────────────────────────────────────────────────────

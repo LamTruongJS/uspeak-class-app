@@ -16,6 +16,7 @@ import { getDraft, saveDraft } from '@/features/chat/drafts';
 import { roomTitle } from '@/features/chat/format';
 import { CreatePollSheet } from '@/features/chat/create-poll';
 import { ForwardSheet } from '@/features/chat/forward-sheet';
+import { IssueReportSheet } from '@/features/chat/issue-report-sheet';
 import { MessageActions } from '@/features/chat/message-actions';
 import { MessageItem } from '@/features/chat/message-item';
 import { MessageSearchSheet } from '@/features/chat/message-search';
@@ -36,6 +37,8 @@ import { useThemeColor } from '@/theme/use-theme-color';
 const IMAGE_CONTENT = '[Hình ảnh]';
 const TYPING_THROTTLE_MS = 2500;
 const TYPING_TTL_MS = 5000;
+/** Sender ảo của tin tự động — khớp USPEAK_BOT_ID ở class-be (web: chat/page.tsx). */
+const USPEAK_BOT_ID = '000000000000000000000b07';
 /** Cuộn lên quá ngưỡng này (px) thì coi như đang đọc tin cũ → hiện nút "Tin mới". */
 const SCROLLED_UP_PX = 300;
 /** Nhảy tới tin cũ: tải thêm tối đa chừng này trang (40 tin/trang) trước khi bỏ cuộc. */
@@ -70,6 +73,7 @@ export default function ChatRoomScreen() {
   const [editing, setEditing] = useState<ChatMessage | null>(null);
   const [actionFor, setActionFor] = useState<ChatMessage | null>(null);
   const [forwardFor, setForwardFor] = useState<ChatMessage | null>(null);
+  const [reportFor, setReportFor] = useState<ChatMessage | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
   const sheet = useActionSheet();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -850,8 +854,10 @@ export default function ChatRoomScreen() {
         onPin={pin}
         onForward={setForwardFor}
         onRecall={recall}
+        onReportIssue={setReportFor}
       />
       <ForwardSheet message={forwardFor} onClose={() => setForwardFor(null)} />
+      {reportFor ? <IssueReportSheet key={reportFor._id} roomId={roomId} message={reportFor} onClose={() => setReportFor(null)} /> : null}
       <CreatePollSheet roomId={roomId} visible={pollOpen} onClose={() => setPollOpen(false)} />
       <MessageSearchSheet
         roomId={roomId}
@@ -936,10 +942,13 @@ function RoomSubtitle({
 
   const names = Object.keys(typingIds)
     .map((id) =>
-      members
-        ?.find((m) => m._id === id)
-        ?.full_name?.split(' ')
-        .pop(),
+      // Agent ngoài nhắn qua /api/mcp dưới tên bot — bot không nằm trong danh sách thành viên.
+      id === USPEAK_BOT_ID
+        ? 'Uspeak Bot'
+        : members
+            ?.find((m) => m._id === id)
+            ?.full_name?.split(' ')
+            .pop(),
     )
     .filter(Boolean);
   if (!names.length) return <>{fallback}</>;

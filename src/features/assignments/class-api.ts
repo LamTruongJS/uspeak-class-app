@@ -44,6 +44,8 @@ export const ASSIGNMENT_TYPE_LABEL: Record<string, string> = {
   multi_task: 'Nhiều mục',
   youtube_video: 'YouTube Video',
   shadowing: 'Shadowing',
+  sym: 'Speak Your Mind',
+  tvst_business: 'TVST đi làm',
 };
 
 export function assignmentTypeLabel(code?: string | null) {
