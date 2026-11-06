@@ -152,63 +152,79 @@ export function StoryPanel({ lines, bilingual, audio }: { lines: TvstBizLine[]; 
         />
       ) : null}
 
-      {/* Cài đặt: tốc độ · chờ nói · lặp câu · tự chuyển câu */}
-      <View className="flex-row flex-wrap items-center gap-2">
-        <Pills items={SPEEDS.map((v) => ({ value: v, label: `${v}x` }))} value={rate} onChange={setRateState} />
-        <Pills items={WAITS.map((v) => ({ value: v, label: v ? `Chờ ${v}s` : 'Không chờ' }))} value={waitSeconds} onChange={setWaitSeconds} />
-        <Toggle icon="repeat" label="Lặp câu" on={looping} onPress={() => setLooping((v) => !v)} />
-        <Toggle icon="list" label="Tự chuyển" on={autoNext} onPress={() => setAutoNext((v) => !v)} />
+      {/* Cài đặt — 2 hàng thẳng cột, không rớt dòng lung tung như bản cũ (anh báo 06/11/2026):
+          hàng 1 tốc độ + lặp câu + tự chuyển câu (chỉ icon, như web mobile) · hàng 2 thời gian chờ nói */}
+      <View className="gap-2 rounded-2xl border border-border bg-surface p-2">
+        <View className="flex-row items-center gap-2">
+          <Pills items={SPEEDS.map((v) => ({ value: v, label: `${v}x` }))} value={rate} onChange={setRateState} />
+          <IconToggle icon="repeat" label={looping ? 'Tắt lặp câu' : 'Lặp câu'} on={looping} solid onPress={() => setLooping((v) => !v)} />
+          <IconToggle icon="list" label="Tự chuyển câu" on={autoNext} onPress={() => setAutoNext((v) => !v)} />
+        </View>
+        <View className="flex-row items-center gap-2">
+          <View className="w-[74px] flex-row items-center gap-1 pl-1.5">
+            <Ionicons name="timer-outline" size={15} color={brand} />
+            <Text className="text-[12px] font-bold text-muted">Chờ nói</Text>
+          </View>
+          <Pills items={WAITS.map((v) => ({ value: v, label: v ? `${v}s` : 'Không' }))} value={waitSeconds} onChange={setWaitSeconds} />
+        </View>
       </View>
 
-      {/* Thẻ câu */}
-      <View className="gap-3 rounded-3xl bg-surface p-4">
-        <View className="min-h-[24px] flex-row items-center justify-between gap-2">
-          <Text className="text-[12px] font-bold text-muted">
-            Câu {index + 1}/{lines.length}
-          </Text>
-          {phase === 'prompt' ? (
-            <Badge icon="headset" text={`Đang phát ${viFirst ? 'tiếng Việt' : 'tiếng Anh'}...`} />
-          ) : phase === 'wait' ? (
-            <View className="flex-row items-center gap-2">
-              <Badge icon="mic" text={`Đến lượt bạn nói · ${countdown}s`} />
-              <Pressable hitSlop={6} onPress={() => (skip.current = true)}>
-                <Text className="text-[12px] font-bold text-brand">Hiện ngay</Text>
-              </Pressable>
+      {/* Thẻ câu — chữ căn giữa, "Câu x/y" góc phải, trạng thái phát góc trái, thanh tiến độ sát đáy (như web) */}
+      <View className="overflow-hidden rounded-3xl border border-brand/20 bg-surface">
+        <View className="min-h-[28px] flex-row items-center gap-2 px-3 pt-3">
+          <View className="flex-1 flex-row items-center gap-2">
+            {phase === 'prompt' ? (
+              <Badge icon="headset" text={`Đang phát ${viFirst ? 'tiếng Việt' : 'tiếng Anh'}...`} />
+            ) : phase === 'wait' ? (
+              <>
+                <Badge icon="mic" text={`Lượt bạn nói · ${countdown}s`} solid />
+                <Pressable hitSlop={8} onPress={() => (skip.current = true)}>
+                  <Text className="text-[12px] font-bold text-brand">Hiện ngay</Text>
+                </Pressable>
+              </>
+            ) : phase === 'answer' && bilingual && playingKey === `answer-${index}` ? (
+              <Badge icon="headset" text={`Đang phát ${viFirst ? 'tiếng Anh' : 'tiếng Việt'}...`} />
+            ) : null}
+            {looping && running ? <Badge icon="repeat" /> : null}
+          </View>
+          <View className="rounded-full bg-brand-soft px-2.5 py-1">
+            <Text className="text-[11.5px] font-bold text-brand">
+              Câu {index + 1}/{lines.length}
+            </Text>
+          </View>
+        </View>
+
+        <View className="min-h-[150px] justify-center gap-3 px-4 pb-5 pt-4">
+          {bilingual && viFirst ? (
+            <Text className={`text-center text-[16px] font-bold italic leading-6 text-brand ${showVi ? '' : 'opacity-0'}`}>{stripKw(line.vi)}</Text>
+          ) : null}
+          {showEn ? (
+            <View className="gap-2">
+              <KwText text={line.en} className="text-center text-[20px] font-extrabold leading-8 text-foreground" />
+              {line.ipa ? <Text className="text-center text-[13px] leading-5 text-muted">{line.ipa}</Text> : null}
             </View>
-          ) : phase === 'answer' && bilingual && playingKey === `answer-${index}` ? (
-            <Badge icon="headset" text={`Đang phát ${viFirst ? 'tiếng Anh' : 'tiếng Việt'}...`} />
+          ) : (
+            <Text className="text-center text-[13px] italic text-muted">Nói câu tiếng Anh của bạn…</Text>
+          )}
+          {bilingual && !viFirst ? (
+            showVi ? (
+              <Text className="text-center text-[16px] font-bold italic leading-6 text-brand">{stripKw(line.vi)}</Text>
+            ) : (
+              <Text className="text-center text-[13px] italic text-muted">Dịch sang tiếng Việt…</Text>
+            )
           ) : null}
         </View>
 
-        {bilingual && viFirst ? (
-          <Text className={`text-[17px] font-semibold leading-7 text-foreground ${showVi ? '' : 'opacity-0'}`}>{stripKw(line.vi)}</Text>
-        ) : null}
-        {showEn ? (
-          <View className="gap-1">
-            <KwText text={line.en} className="text-[19px] font-semibold leading-8 text-foreground" />
-            {line.ipa ? <Text className="text-[13.5px] text-muted">{line.ipa}</Text> : null}
-          </View>
-        ) : (
-          <Text className="text-[13px] italic text-muted">Nói câu tiếng Anh của bạn…</Text>
-        )}
-        {bilingual && !viFirst ? (
-          showVi ? (
-            <Text className="text-[16px] leading-6 text-foreground">{stripKw(line.vi)}</Text>
-          ) : (
-            <Text className="text-[13px] italic text-muted">Dịch sang tiếng Việt…</Text>
-          )
-        ) : null}
-
-        <View className="h-1 overflow-hidden rounded-full bg-surface-muted">
-          <View className="h-full rounded-full bg-brand" style={{ width: `${((index + 1) / lines.length) * 100}%` }} />
-        </View>
-
-        {/* Điều khiển */}
-        <View className="flex-row gap-2">
+        {/* Điều khiển: Phát · Dừng · Câu trước · Câu sau */}
+        <View className="flex-row gap-2 px-3 pb-3">
           <Ctrl icon="play" primary disabled={running} onPress={() => void runFrom(index)} color={running ? muted : onBrand} />
           <Ctrl icon="stop" disabled={!running} onPress={stopRun} color={running ? brand : muted} />
           <Ctrl icon="chevron-back" disabled={index === 0} onPress={() => goTo(index - 1)} color={index === 0 ? muted : brand} />
           <Ctrl icon="chevron-forward" disabled={index >= lines.length - 1} onPress={() => goTo(index + 1)} color={index >= lines.length - 1 ? muted : brand} />
+        </View>
+
+        <View className="h-1 bg-brand-soft">
+          <View className="h-full bg-brand" style={{ width: `${((index + 1) / lines.length) * 100}%` }} />
         </View>
       </View>
 
@@ -284,38 +300,75 @@ function ChunkRow({
   ) : bilingual ? (
     <Text className="text-[12.5px] italic text-muted">Nghĩa hiện sau khi bạn dịch</Text>
   ) : null;
-  return <View className="gap-1 rounded-2xl bg-surface p-3">{viFirst ? [vi, en] : [en, vi]}</View>;
-}
-
-function Pills<T extends number>({ items, value, onChange }: { items: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  // Nền hồng nhạt viền đỏ mờ như ChunkChip web — tách khỏi thẻ câu trắng phía trên
   return (
-    <View className="flex-row rounded-full bg-surface-muted p-0.5">
-      {items.map((it) => (
-        <Pressable key={it.value} onPress={() => onChange(it.value)} className={`rounded-full px-2.5 py-1 ${value === it.value ? 'bg-surface' : ''}`}>
-          <Text className={`text-[12px] font-bold ${value === it.value ? 'text-brand' : 'text-muted'}`}>{it.label}</Text>
-        </Pressable>
-      ))}
+    <View className="gap-1 rounded-2xl border border-brand/20 bg-brand-soft/50 px-3 py-2.5">
+      {viFirst ? (
+        <>
+          {vi}
+          {en}
+        </>
+      ) : (
+        <>
+          {en}
+          {vi}
+        </>
+      )}
     </View>
   );
 }
 
-function Toggle({ icon, label, on, onPress }: { icon: 'repeat' | 'list'; label: string; on: boolean; onPress: () => void }) {
-  const brand = useThemeColor('brand');
-  const muted = useThemeColor('muted');
+/** Nhóm lựa chọn chia đều cả hàng (flex-1) — ô đang chọn nền trắng chữ đỏ */
+function Pills<T extends number>({ items, value, onChange }: { items: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <Pressable onPress={onPress} className={`flex-row items-center gap-1 rounded-full px-2.5 py-1.5 ${on ? 'bg-brand-soft' : 'bg-surface-muted'}`}>
-      <Ionicons name={icon} size={13} color={on ? brand : muted} />
-      <Text className={`text-[12px] font-bold ${on ? 'text-brand' : 'text-muted'}`}>{label}</Text>
+    <View className="h-9 flex-1 flex-row rounded-xl bg-surface-muted p-0.5">
+      {items.map((it) => {
+        const active = value === it.value;
+        return (
+          <Pressable
+            key={it.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(it.value)}
+            className={`flex-1 items-center justify-center rounded-[10px] ${active ? 'bg-surface' : ''}`}>
+            <Text className={`text-[12.5px] font-bold ${active ? 'text-brand' : 'text-muted'}`}>{it.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Nút bật/tắt chỉ có icon (như web mobile). `solid`: bật thì nền đỏ đặc (lặp câu), không thì nền hồng nhạt. */
+function IconToggle({ icon, label, on, solid, onPress }: { icon: 'repeat' | 'list'; label: string; on: boolean; solid?: boolean; onPress: () => void }) {
+  const brand = useThemeColor('brand');
+  const onBrand = useThemeColor('on-brand');
+  const muted = useThemeColor('muted');
+  const tone = on ? (solid ? 'border-brand bg-brand' : 'border-brand/30 bg-brand-soft') : 'border-border bg-surface';
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: on }}
+      hitSlop={4}
+      onPress={onPress}
+      className={`h-9 w-9 items-center justify-center rounded-xl border active:opacity-80 ${tone}`}>
+      <Ionicons name={icon} size={17} color={on ? (solid ? onBrand : brand) : muted} />
     </Pressable>
   );
 }
 
-function Badge({ icon, text }: { icon: 'headset' | 'mic'; text: string }) {
+function Badge({ icon, text, solid }: { icon: 'headset' | 'mic' | 'repeat'; text?: string; solid?: boolean }) {
   const brand = useThemeColor('brand');
+  const onBrand = useThemeColor('on-brand');
   return (
-    <View className="flex-row items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1">
-      <Ionicons name={icon} size={12} color={brand} />
-      <Text className="text-[11.5px] font-bold text-brand">{text}</Text>
+    <View className={`flex-row items-center gap-1 rounded-full px-2.5 py-1 ${solid ? 'bg-brand' : 'bg-brand-soft'}`}>
+      <Ionicons name={icon} size={12} color={solid ? onBrand : brand} />
+      {text ? (
+        <Text className={`text-[11.5px] font-bold ${solid ? 'text-on-brand' : 'text-brand'}`} numberOfLines={1}>
+          {text}
+        </Text>
+      ) : null}
     </View>
   );
 }

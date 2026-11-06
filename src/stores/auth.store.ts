@@ -3,10 +3,11 @@ import { isAxiosError } from 'axios';
 import { create } from 'zustand';
 
 import { authApi } from '@/features/auth/api';
-import { unregisterPush } from '@/features/push/push';
+import { unregisterPush } from '@/features/push/push-token';
 import type { LoginSuccess, User } from '@/features/auth/types';
 import { setSessionExpiredHandler } from '@/lib/api/client';
-import { tokenStorage } from '@/lib/auth/token-storage';
+import { TokenUnavailableError, tokenStorage } from '@/lib/auth/token-storage';
+import { retryWhenActive } from '@/lib/retry-when-active';
 import { queryClient } from '@/lib/query-client';
 
 type AuthStatus = 'booting' | 'signedIn' | 'signedOut';
@@ -37,7 +38,18 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
 
   bootstrap: async () => {
-    const tokens = await tokenStorage.get();
+    let tokens: Awaited<ReturnType<typeof tokenStorage.get>>;
+    try {
+      tokens = await tokenStorage.get();
+    } catch (err) {
+      // Keychain chưa đọc được (push ngầm mở app lúc iPhone đang khoá) — KHÔNG phải chưa đăng nhập.
+      // Giữ màn chờ, app trở lại foreground thì thử lại.
+      if (err instanceof TokenUnavailableError) {
+        retryWhenActive(() => void get().bootstrap());
+        return;
+      }
+      throw err;
+    }
     if (!tokens) {
       set({ status: 'signedOut', user: null });
       return;
@@ -47,9 +59,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       await cacheUser(user);
       set({ status: 'signedIn', user });
     } catch (err) {
-      // Mất mạng → vào app bằng hồ sơ cũ; 401 đã được interceptor xử lý (đá về login).
-      const offline = isAxiosError(err) && !err.response;
-      const cached = offline ? await AsyncStorage.getItem(USER_CACHE_KEY) : null;
+      // 401 đã được interceptor xử lý (refresh hỏng thật → xoá phiên, đá về login). Lỗi khác — mất
+      // mạng, server/CRM đang lỗi (5xx), quá hạn chờ… — KHÔNG phải hết phiên: vào app bằng hồ sơ cũ.
+      const unauthorized = isAxiosError(err) && err.response?.status === 401;
+      const cached = unauthorized ? null : await AsyncStorage.getItem(USER_CACHE_KEY);
       if (cached) set({ status: 'signedIn', user: JSON.parse(cached) as User });
       else if (get().status === 'booting') set({ status: 'signedOut', user: null });
     }

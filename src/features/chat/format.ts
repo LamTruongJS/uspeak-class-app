@@ -22,10 +22,26 @@ export type ContentPart =
 
 const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g;
 
+/**
+ * Gộp dòng trống thừa như web (class-fe utils/chat-text.ts, 04/11/2026): ô soạn tin web từng đếm 1 dòng
+ * trống thành 2–3, tin cũ còn lưu nguyên → dòng chỉ có khoảng trắng coi là trống, tối đa 1 dòng trống
+ * liên tiếp, bỏ dòng trống đầu/cuối. Không đụng khoảng trắng TRONG một dòng.
+ */
+export function normalizeChatLineBreaks(text: string) {
+  if (!text) return text;
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => (/^[\s\u00a0\u200b\u200c\u200d\ufeff]*$/.test(line) ? '' : line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+|\n+$/g, '');
+}
+
 /** Tách nội dung thành đoạn chữ / @nhắc tên / link để tô màu & bấm được. */
 export function parseContent(content?: string | null): ContentPart[] {
   const parts: ContentPart[] = [];
-  const src = content || '';
+  const src = normalizeChatLineBreaks(content || '');
   let last = 0;
   for (const m of src.matchAll(MENTION_RE)) {
     if (m.index! > last) pushText(parts, src.slice(last, m.index));

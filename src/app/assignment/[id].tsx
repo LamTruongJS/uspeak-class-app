@@ -63,7 +63,7 @@ export default function AssignmentScreen() {
   // Speak Your Mind: nghe chép chính tả làm ngay trong app, không có nút nộp / trang kết quả.
   if (type === 'sym') {
     return (
-      <Shell title="Speak Your Mind">
+      <Shell title={assignment.title || 'Speak Your Mind'}>
         <KeyboardAvoider>
           <ScrollView contentContainerClassName="p-4 pb-12" keyboardShouldPersistTaps="handled">
             <SymAssignment assignmentId={assignment._id} />
@@ -76,7 +76,7 @@ export default function AssignmentScreen() {
   // TVST Business (STEP 4–6 tự chấm thang 10): kết quả hiện ngay trên màn làm bài, không có /result.
   if (type === 'tvst_business') {
     return (
-      <Shell title="TVST đi làm">
+      <Shell title={assignment.title || 'Bài tập'}>
         <KeyboardAvoider>
           <ScrollView contentContainerClassName="p-4 pb-12" keyboardShouldPersistTaps="handled">
             <TvstBusinessAssignment assignmentId={assignment._id} />

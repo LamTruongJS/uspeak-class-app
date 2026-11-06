@@ -33,6 +33,8 @@ const STEPS: { step: Step; label: string }[] = [
   { step: 6, label: 'Điền chỗ trống' },
 ];
 
+const chunk3 = <T,>(list: T[]): T[][] => Array.from({ length: Math.ceil(list.length / 3) }, (_, i) => list.slice(i * 3, i * 3 + 3));
+
 const progressKey = (practiceId: string) => ['elearning', 'tvst-business-progress', practiceId] as const;
 
 export function TvstBusinessPractice({ classId, practiceId, content }: { classId: string; practiceId: string; content: TvstBizContent | undefined }) {
@@ -61,42 +63,54 @@ export function TvstBusinessPractice({ classId, practiceId, content }: { classId
 
   return (
     <View className="gap-3">
-      <View className="gap-1 rounded-2xl bg-brand-soft px-4 py-3">
-        <Text className="text-[11px] font-black uppercase tracking-wide text-brand">Từ Vựng Siêu Tốc</Text>
-        <Text className="text-[16px] font-bold text-foreground">
-          {unit.unit} · {unit.title}
-        </Text>
-        {unit.title_vi ? <Text className="text-[12.5px] text-muted">{unit.title_vi}</Text> : null}
-      </View>
+      {/* Đầu bài + các STEP chung 1 khối như web. Tên bài đã nằm trên thanh tiêu đề nên ở đây chỉ nhắc nhẹ. */}
+      <View className="gap-3 rounded-2xl bg-brand-soft p-3">
+        <View className="gap-0.5 px-1">
+          <Text className="text-[11px] font-black uppercase tracking-wide text-brand">Từ Vựng Siêu Tốc</Text>
+          <Text className="text-[15px] font-bold text-foreground">
+            {unit.unit} · {unit.title}
+          </Text>
+          {unit.title_vi ? <Text className="text-[12.5px] text-muted">{unit.title_vi}</Text> : null}
+        </View>
 
-      {units.length > 1 ? (
-        <FilterChips
-          items={units.map((u, i) => ({ value: String(i), label: u.unit }))}
-          value={String(unitIndex)}
-          onChange={(v) => {
-            audio.stop();
-            setUnitIndex(Number(v));
-            setStep(1);
-          }}
-        />
-      ) : null}
+        {units.length > 1 ? (
+          <FilterChips
+            items={units.map((u, i) => ({ value: String(i), label: u.unit }))}
+            value={String(unitIndex)}
+            onChange={(v) => {
+              audio.stop();
+              setUnitIndex(Number(v));
+              setStep(1);
+            }}
+          />
+        ) : null}
 
-      {/* Lưới 3 cột, mỗi ô 2 dòng (STEP n / tên) — khỏi vuốt ngang tìm step, như web mobile */}
-      <View className="flex-row flex-wrap gap-1.5">
-        {steps.map((s) => {
-          const active = s.step === activeStep;
-          return (
-            <Pressable
-              key={s.step}
-              onPress={() => change(s.step)}
-              className={`w-[32.3%] items-center rounded-xl border py-1.5 ${active ? 'border-brand bg-brand' : 'border-border bg-surface'}`}>
-              <Text className={`text-[10.5px] font-bold ${active ? 'text-on-brand' : 'text-muted'}`}>STEP {s.step}</Text>
-              <Text className={`text-[12.5px] font-bold ${active ? 'text-on-brand' : 'text-foreground'}`} numberOfLines={1}>
-                {s.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {/* Lưới 3 cột, mỗi ô 2 dòng (STEP n / tên). Bản cũ đặt w-[32.3%] + gap nên ô thứ 3 rớt xuống
+            dòng dưới (anh báo 06/11/2026) → mỗi hàng 3 ô flex-1, 6 step thì 2 hàng. */}
+        {chunk3(steps).map((row) => (
+          <View key={row[0].step} className="flex-row gap-1.5">
+            {row.map((s) => {
+              const active = s.step === activeStep;
+              return (
+                <Pressable
+                  key={s.step}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => change(s.step)}
+                  className={`flex-1 items-center rounded-xl border px-1 py-1.5 active:opacity-80 ${active ? 'border-brand bg-brand' : 'border-border bg-surface'}`}>
+                  <Text className={`text-[10.5px] font-black ${active ? 'text-on-brand' : 'text-muted'}`}>STEP {s.step}</Text>
+                  <Text className={`text-[12.5px] font-bold ${active ? 'text-on-brand' : 'text-foreground'}`} numberOfLines={1}>
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {/* Hàng cuối thiếu ô thì chèn ô trống để các ô vẫn rộng 1/3 */}
+            {Array.from({ length: 3 - row.length }, (_, i) => (
+              <View key={`pad-${i}`} className="flex-1" />
+            ))}
+          </View>
+        ))}
       </View>
 
       {activeStep === 1 ? <StoryPanel key={`${unit.unit}-1`} lines={unit.story ?? []} bilingual={false} audio={audio} /> : null}

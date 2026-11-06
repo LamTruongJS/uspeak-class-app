@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -25,16 +26,73 @@ interface PlayerProps {
   onTime?: (seconds: number) => void;
   /** 1 = đang phát, 2 = tạm dừng, 0 = hết (mã của YT.PlayerState) */
   onState?: (state: number) => void;
+  /** Màn xem toàn màn hình (video-fullscreen): phủ kín khung, tự phát, không có nút phóng to */
+  fill?: boolean;
+  autoPlay?: boolean;
+}
+
+// ─── Xem toàn màn hình (xoay ngang như YouTube) ─────────────────────────────
+// Màn video-fullscreen ghi giây đang xem lúc đóng; trình phát gốc đọc lại khi màn của nó được focus và
+// tua tới đó → thoát toàn màn hình vẫn xem tiếp đúng chỗ.
+const resumeAt = new Map<string, number>();
+export function setFullscreenResume(videoKey: string, seconds: number) {
+  resumeAt.set(videoKey, seconds);
+}
+function takeFullscreenResume(videoKey: string) {
+  const t = resumeAt.get(videoKey);
+  resumeAt.delete(videoKey);
+  return t;
 }
 
 export const SubmissionVideoPlayer = forwardRef<SubmissionPlayerHandle, PlayerProps>(function SubmissionVideoPlayer(
-  { videoKey, ...rest },
+  { videoKey, onTime, fill, ...rest },
   ref,
 ) {
-  return isBunnyVideoKey(videoKey) ? (
-    <BunnySubmissionPlayer ref={ref} guid={bunnyVideoIdFromKey(videoKey)} {...rest} />
+  const inner = useRef<SubmissionPlayerHandle>(null);
+  const last = useRef(rest.start ?? 0);
+  useImperativeHandle(ref, () => ({
+    seekTo: (t, play) => inner.current?.seekTo(t, play),
+    play: () => inner.current?.play(),
+    pause: () => inner.current?.pause(),
+  }));
+
+  useFocusEffect(
+    useCallback(() => {
+      if (fill) return;
+      const t = takeFullscreenResume(videoKey);
+      if (t !== undefined) inner.current?.seekTo(t, true);
+    }, [fill, videoKey]),
+  );
+
+  const openFullscreen = () => {
+    if (fill) return;
+    inner.current?.pause();
+    router.push({ pathname: '/video-fullscreen', params: { key: videoKey, start: String(Math.floor(last.current)) } });
+  };
+  const time = (t: number) => {
+    last.current = t;
+    onTime?.(t);
+  };
+
+  const player = isBunnyVideoKey(videoKey) ? (
+    <BunnySubmissionPlayer ref={inner} guid={bunnyVideoIdFromKey(videoKey)} fill={fill} onTime={time} onFullscreen={openFullscreen} {...rest} />
   ) : (
-    <YoutubePlayer ref={ref} videoId={videoKey} {...rest} />
+    <YoutubePlayer ref={inner} videoId={videoKey} fill={fill} onTime={time} {...rest} />
+  );
+  if (fill) return player;
+  return (
+    <View>
+      {player}
+      <Pressable
+        onPress={openFullscreen}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel="Xem toàn màn hình"
+        className="absolute right-2 top-2 h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+        style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+        <Ionicons name="expand" size={18} color="#fff" />
+      </Pressable>
+    </View>
   );
 });
 
@@ -51,13 +109,13 @@ const PLAYERJS_SRC = 'https://assets.mediadelivery.net/playerjs/player-0.1.0.min
  * Lệnh trước khi player sẵn sàng (seek/play) được Player.js tự xếp hàng.
  * `baseUrl` = WEB_URL để iframe có Referer class.uspeak.vn như bản web.
  */
-const bunnyHtml = (playUrl: string, start: number) => `<!doctype html><html><head>
+const bunnyHtml = (playUrl: string, start: number, autoPlay: boolean) => `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}iframe{position:absolute;inset:0;width:100%;height:100%;border:0}</style>
 <script src="${PLAYERJS_SRC}"></script>
 </head><body>
 <script>
-var p = null, last = -1, startAt = ${Math.max(0, Math.floor(start))};
+var p = null, last = -1, startAt = ${Math.max(0, Math.floor(start))}, autoPlay = ${autoPlay ? 'true' : 'false'};
 function send(o){ window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(o)); }
 function time(t){ if (typeof t === 'number' && Math.abs(t - last) >= 0.2) { last = t; send({ type: 'time', t: t }); } }
 var f = document.createElement('iframe');
@@ -67,12 +125,21 @@ f.setAttribute('allowfullscreen', '');
 document.body.appendChild(f);
 if (window.playerjs && window.playerjs.Player) {
   p = new playerjs.Player(f);
-  p.on('ready', function(){ send({ type: 'ready' }); if (startAt > 0) p.setCurrentTime(startAt); });
+  p.on('ready', function(){ send({ type: 'ready' }); if (startAt > 0) p.setCurrentTime(startAt); if (autoPlay) p.play(); });
   p.on('timeupdate', function(d){ if (d) time(d.seconds); });
   p.on('play', function(){ send({ type: 'state', state: 1 }); });
   p.on('pause', function(){ send({ type: 'state', state: 2 }); });
   p.on('ended', function(){ send({ type: 'state', state: 0 }); });
 }
+// Nút toàn màn hình của Bunny: thoát fullscreen của WebView (không xoay được) và báo app mở màn xoay ngang
+function onFs(){
+  var el = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!el) return;
+  try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+  send({ type: 'fullscreen' });
+}
+document.addEventListener('fullscreenchange', onFs);
+document.addEventListener('webkitfullscreenchange', onFs);
 window.__cmd = function(c){
   if (!p) return;
   try {
@@ -83,8 +150,8 @@ window.__cmd = function(c){
 };
 </script></body></html>`;
 
-const BunnySubmissionPlayer = forwardRef<SubmissionPlayerHandle, Omit<PlayerProps, 'videoKey'> & { guid: string }>(
-  function BunnySubmissionPlayer({ guid, start = 0, onTime, onState }, ref) {
+const BunnySubmissionPlayer = forwardRef<SubmissionPlayerHandle, Omit<PlayerProps, 'videoKey'> & { guid: string; onFullscreen?: () => void }>(
+  function BunnySubmissionPlayer({ guid, start = 0, onTime, onState, fill, autoPlay = false, onFullscreen }, ref) {
     const web = useRef<WebView>(null);
     const query = useQuery({
       queryKey: ['submission-video-play', guid],
@@ -102,7 +169,8 @@ const BunnySubmissionPlayer = forwardRef<SubmissionPlayerHandle, Omit<PlayerProp
     const playUrl = query.data?.play_url ?? null;
     // Giữ `start` lúc mở — đổi prop sau đó không nạp lại video
     const [startAt] = useState(start);
-    const html = useMemo(() => (playUrl ? bunnyHtml(playUrl, startAt) : null), [playUrl, startAt]);
+    const [auto] = useState(autoPlay);
+    const html = useMemo(() => (playUrl ? bunnyHtml(playUrl, startAt, auto) : null), [playUrl, startAt, auto]);
 
     const run = (cmd: object) => web.current?.injectJavaScript(`window.__cmd && window.__cmd(${JSON.stringify(cmd)}); true;`);
     useImperativeHandle(ref, () => ({
@@ -116,6 +184,7 @@ const BunnySubmissionPlayer = forwardRef<SubmissionPlayerHandle, Omit<PlayerProp
         const msg = JSON.parse(e.nativeEvent.data) as { type: string; t?: number; state?: number };
         if (msg.type === 'time' && typeof msg.t === 'number') onTime?.(msg.t);
         if (msg.type === 'state' && typeof msg.state === 'number') onState?.(msg.state);
+        if (msg.type === 'fullscreen') onFullscreen?.();
       } catch {
         // bỏ qua tin không phải JSON
       }
@@ -153,7 +222,7 @@ const BunnySubmissionPlayer = forwardRef<SubmissionPlayerHandle, Omit<PlayerProp
     }
 
     return (
-      <View style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }}>
+      <View style={fill ? { flex: 1, backgroundColor: '#000' } : { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }}>
         {html ? (
           <WebView
             key={playUrl}

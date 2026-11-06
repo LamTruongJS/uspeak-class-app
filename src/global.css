@@ -36,6 +36,13 @@
       --color-navy-soft: #eef1ff;
       --color-zoom: #2d8cff;
       --color-orange: #ea580c;
+
+      /* Khung hội thoại chat (theo chat-task / web .uspeak-chat, 04/11/2026) — chỉ dùng trong phòng chat */
+      --color-bubble-mine: #d1e3ff;
+      --color-bubble-other: #ebeced;
+      --color-active: #d8e5f6;
+      --color-pin: #ff7d00;
+      --color-pin-soft: #fff7e8;
     }
 
     @variant dark {
@@ -65,6 +72,12 @@
       --color-navy-soft: #1d283f;
       --color-zoom: #2d8cff;
       --color-orange: #fb923c;
+
+      --color-bubble-mine: #1c3a63;
+      --color-bubble-other: #2c333a;
+      --color-active: #1c2b41;
+      --color-pin: #ff8800;
+      --color-pin-soft: #2b2418;
     }
   }
 }

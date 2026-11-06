@@ -231,7 +231,7 @@ export default function AccountScreen() {
         <Text className="text-base font-semibold text-danger">Đăng xuất</Text>
       </Pressable>
 
-      <Text className="pt-4 text-center text-xs text-muted">Uspeak Class · Phiên bản {Constants.expoConfig?.version ?? '—'}</Text>
+      <Text className="pt-4 text-center text-xs text-muted">Uspeak Academy · Phiên bản {Constants.expoConfig?.version ?? '—'}</Text>
 
       {sheet.sheet}
       <ChangePasswordSheet visible={passwordOpen} onClose={() => setPasswordOpen(false)} />

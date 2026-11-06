@@ -120,7 +120,7 @@ export function TvstBusinessAssignment({ assignmentId, studentId }: { assignment
           setSaveStatus('error');
         });
     },
-    [assignmentId],
+    [assignmentId, setSaveStatus],
   );
 
   const flushDrafts = useCallback(
@@ -269,27 +269,43 @@ export function TvstBusinessAssignment({ assignmentId, studentId }: { assignment
 
   return (
     <View className="gap-3">
-      <View className="gap-2 rounded-2xl bg-brand-soft px-4 py-3">
-        <Text className="text-[11px] font-black uppercase tracking-wide text-brand">Bài tập · Từ Vựng Siêu Tốc đi làm</Text>
-        <Text className="text-[16px] font-bold text-foreground">
-          {unit.unit} · {unit.title}
-          {unit.title_vi ? ` — ${unit.title_vi}` : ''}
-        </Text>
-        <View className="flex-row flex-wrap gap-1.5">
-          <Chip text="Không có hạn nộp" />
-          <Chip text={`Tự chấm thang ${view.max_score}`} />
-          {isReviewer ? <Chip text={submitted ? 'Học viên đã nộp' : 'Học viên chưa nộp — đang xem bản nháp'} tone={submitted ? 'success' : 'warning'} /> : null}
+      {/* Đầu bài gọn (anh báo 06/11/2026): tên bài + 1 dòng phụ thay cho hàng chip, điểm gộp vào cùng khối */}
+      <View className="gap-2.5 rounded-2xl bg-brand-soft p-3">
+        <View className="gap-0.5 px-1">
+          <Text className="text-[11px] font-black uppercase tracking-wide text-brand">Bài tập · Từ Vựng Siêu Tốc đi làm</Text>
+          <Text className="text-[15px] font-bold leading-5 text-foreground">
+            {unit.unit} · {unit.title}
+          </Text>
+          <Text className="text-[12px] text-muted" numberOfLines={1}>
+            {unit.title_vi ? `${unit.title_vi} · ` : ''}Không hạn nộp · Tự chấm thang {view.max_score}
+          </Text>
         </View>
-        <View className="flex-row flex-wrap gap-1.5 pt-1">
+        {isReviewer ? (
+          <View className="flex-row">
+            <Chip text={submitted ? 'Học viên đã nộp' : 'Học viên chưa nộp — đang xem bản nháp'} tone={submitted ? 'success' : 'warning'} />
+          </View>
+        ) : null}
+        {result ? (
+          <ScoreCard result={result} submittedAt={view.submitted_at} attempts={view.attempts} onRetry={isReviewer ? undefined : confirmRetry} retrying={busy === 'retry'} />
+        ) : null}
+        {/* 3 ô chia đều 1 hàng, mỗi ô 2 dòng (STEP n · số câu / tên) — đã nộp thì số là câu đúng, thay cho ô điểm từng phần */}
+        <View className="flex-row gap-1.5">
           {steps.map((s) => {
             const active = s === activeStep;
             const count = result ? `${result.steps.find((x) => x.step === s)?.correct ?? 0}/${stepTotals[s]}` : `${Math.min(stepFilled[s], stepTotals[s])}/${stepTotals[s]}`;
             return (
-              <Pressable key={s} onPress={() => changeStep(s)} className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 ${active ? 'bg-brand' : 'bg-surface'}`}>
-                <Text className={`text-[12.5px] font-bold ${active ? 'text-on-brand' : 'text-foreground'}`}>
-                  {s}. {STEP_LABELS[s]}
+              <Pressable
+                key={s}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => changeStep(s)}
+                className={`flex-1 items-center rounded-xl border px-1 py-1.5 active:opacity-80 ${active ? 'border-brand bg-brand' : 'border-border bg-surface'}`}>
+                <Text className={`text-[10.5px] font-black ${active ? 'text-on-brand' : 'text-muted'}`}>
+                  STEP {s} · {count}
                 </Text>
-                <Text className={`text-[11.5px] font-semibold ${active ? 'text-on-brand' : 'text-muted'}`}>{count}</Text>
+                <Text className={`text-[12.5px] font-bold ${active ? 'text-on-brand' : 'text-foreground'}`} numberOfLines={1}>
+                  {STEP_LABELS[s]}
+                </Text>
               </Pressable>
             );
           })}
@@ -310,10 +326,6 @@ export function TvstBusinessAssignment({ assignmentId, studentId }: { assignment
       ) : null}
       {isReviewer && view.retrying ? (
         <Notice tone="info">Học viên đang làm lại lần mới — bên dưới là bài của lần nộp gần nhất (đúng với điểm đang ghi nhận).</Notice>
-      ) : null}
-
-      {result ? (
-        <ScoreCard result={result} submittedAt={view.submitted_at} attempts={view.attempts} onRetry={isReviewer ? undefined : confirmRetry} retrying={busy === 'retry'} />
       ) : null}
 
       {!readOnly && view.description ? <Text className="px-1 text-[13px] leading-5 text-muted">{view.description}</Text> : null}
@@ -418,29 +430,22 @@ function ScoreCard({
 }) {
   const pct = result.max_score ? result.score / result.max_score : 0;
   const tone = pct >= 0.8 ? 'success' : pct >= 0.5 ? 'warning' : 'danger';
+  // 1 hàng gọn trong khối đầu bài: điểm · giờ nộp · nút Làm lại. Bỏ đoạn giải thích cách tính điểm và các ô
+  // điểm từng step (tab STEP ngay dưới đã ghi số câu đúng) — anh báo 06/11/2026.
   return (
-    <View className={`gap-2 rounded-2xl p-4 ${tone === 'success' ? 'bg-success-soft' : tone === 'warning' ? 'bg-warning-soft' : 'bg-danger-soft'}`}>
-      <View className="flex-row items-end gap-2">
-        <Text className={`text-[32px] font-black ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-danger'}`}>{result.score}</Text>
-        <Text className="pb-1.5 text-[15px] font-bold text-muted">/ {result.max_score} điểm</Text>
-      </View>
-      <Text className="text-[12.5px] text-muted">
-        Đã nộp lúc {formatDateTime(submittedAt)}
-        {attempts && attempts > 1 ? ` · lần ${attempts}` : ''}
+    <View className="flex-row items-center gap-3 rounded-xl bg-surface px-3 py-2">
+      <Text className={`text-[26px] font-black ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-danger'}`}>
+        {result.score}
+        <Text className="text-[13px] font-bold text-muted"> /{result.max_score}</Text>
       </Text>
-      <Text className="text-[12px] leading-5 text-foreground">
-        Điểm = trung bình tỉ lệ đúng của các step × 10. Ô đỏ là chưa đúng; ô vàng là gần đúng (thiếu mạo từ, số nhiều, gõ nhầm 1 chữ…) vẫn được tính điểm — đáp án chuẩn hiện ngay bên cạnh.
-      </Text>
-      <View className="flex-row flex-wrap gap-1.5">
-        {result.steps.map((s) => (
-          <View key={s.step} className="rounded-full bg-surface px-2.5 py-1">
-            <Text className="text-[12px] font-semibold text-foreground">
-              {STEP_LABELS[s.step]}: {s.correct}/{s.total}
-            </Text>
-          </View>
-        ))}
+      <View className="flex-1">
+        <Text className="text-[13px] font-bold text-foreground">Điểm của bạn</Text>
+        <Text className="text-[11.5px] text-muted" numberOfLines={1}>
+          Nộp {formatDateTime(submittedAt)}
+          {attempts && attempts > 1 ? ` · lần ${attempts}` : ''}
+        </Text>
       </View>
-      {onRetry ? <Button title="Làm lại bài" icon="refresh" variant="secondary" loading={retrying} onPress={onRetry} className="mt-1 h-11" /> : null}
+      {onRetry ? <Button title="Làm lại" icon="refresh" variant="secondary" loading={retrying} onPress={onRetry} className="h-9 px-3" /> : null}
     </View>
   );
 }

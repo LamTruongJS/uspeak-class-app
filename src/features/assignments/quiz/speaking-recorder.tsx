@@ -55,7 +55,7 @@ export async function ensureMicPermission(): Promise<boolean> {
   const res = await requestRecordingPermissionsAsync();
   if (res.granted) return true;
   // Hàm thường (không phải component) nên không dùng được bảng chọn — toast có nút là vừa đủ.
-  showToast('warning', 'Chưa có quyền micro', 'Bài có câu luyện nói nên cần micro. Bật Micro cho Uspeak Class rồi quay lại.', {
+  showToast('warning', 'Chưa có quyền micro', 'Bài có câu luyện nói nên cần micro. Bật Micro cho Uspeak Academy rồi quay lại.', {
     duration: 6000,
     action: { label: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
   });

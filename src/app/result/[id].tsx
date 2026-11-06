@@ -270,11 +270,12 @@ type ResultMedia =
 function resultMedia(data: SubmissionResult): ResultMedia[] {
   if (data.submitted_items?.length) {
     return data.submitted_items.flatMap((item) => {
-      const videos = (item.video_urls ?? []).flatMap((url, index): ResultMedia[] => {
+      const urls = item.video_urls ?? [];
+      const videos = urls.flatMap((url, index): ResultMedia[] => {
         const videoId = extractSubmissionVideoKey(url);
-        return videoId
-          ? [{ kind: 'video', key: `${item.item_key}-v${index}`, label: item.label, videoId, itemKey: item.item_key }]
-          : [];
+        // 1 mục nộp nhiều video thì đánh số — không thì 5 video cùng tên, không biết đang xem cái nào
+        const label = urls.length > 1 ? `${item.label} · Video ${index + 1}/${urls.length}` : item.label;
+        return videoId ? [{ kind: 'video', key: `${item.item_key}-v${index}`, label, videoId, itemKey: item.item_key }] : [];
       });
       const images = (item.image_urls ?? []).map(
         (url, index): ResultMedia => ({
@@ -306,7 +307,11 @@ function GradedView({ data, noGrading, submissionId }: { data: SubmissionResult;
   const comments = fb?.timestamp_comments ?? [];
   const media = resultMedia(data);
   const [tab, setTab] = useState<ResultTab>('grading');
-  const [activeKey, setActiveKey] = useState<string | null>(media[0]?.key ?? null);
+  // Mở sẵn video ĐẦU TIÊN CÓ nhận xét theo mốc: bài nhiều video mà giáo viên chỉ nhận xét video thứ 6 thì
+  // mở video 1 sẽ không thấy mốc nào, tưởng mất nhận xét timeline (anh báo 06/11/2026)
+  const [activeKey, setActiveKey] = useState<string | null>(
+    () => (media.find((item) => item.kind === 'video' && videoCommentsOf(item, comments).length) ?? media[0])?.key ?? null,
+  );
   const current = media.find((item) => item.key === activeKey) ?? media[0];
   const tabs: [ResultTab, string][] = [
     ...(media.length > 1 ? ([['playlist', 'Danh sách bài nộp']] as [ResultTab, string][]) : []),
@@ -355,7 +360,14 @@ function GradedView({ data, noGrading, submissionId }: { data: SubmissionResult;
       ) : tab === 'history' ? (
         <SubmissionHistoryTimeline submissionId={submissionId} />
       ) : (
-        <ResultContent data={data} noGrading={noGrading} media={current} comments={comments} />
+        <ResultContent
+          data={data}
+          noGrading={noGrading}
+          media={current}
+          comments={comments}
+          others={media.filter((item) => item.key !== current?.key && item.kind === 'video' && videoCommentsOf(item, comments).length)}
+          onOpen={setActiveKey}
+        />
       )}
     </View>
   );
@@ -366,17 +378,20 @@ function ResultContent({
   noGrading,
   media,
   comments,
+  others,
+  onOpen,
 }: {
   data: SubmissionResult;
   noGrading: boolean;
   media?: ResultMedia;
   comments: TimestampComment[];
+  /** Các video KHÁC có nhận xét theo mốc — để báo + nút chuyển khi video đang xem không có mốc nào */
+  others: ResultMedia[];
+  onOpen: (key: string) => void;
 }) {
   const fb = data.feedback;
-  const videoComments =
-    media?.kind === 'video'
-      ? comments.filter((comment) => comment.kind !== 'image' && (!comment.videoId || comment.videoId === media.videoId))
-      : [];
+  const brand = useThemeColor('brand');
+  const videoComments = media ? videoCommentsOf(media, comments) : [];
   const allImageComments = comments.filter((comment) => comment.kind === 'image');
   const imageComments =
     media?.kind === 'image' && media.itemKey
@@ -423,6 +438,23 @@ function ResultContent({
         <View className="gap-2">
           <Text className="text-sm font-semibold text-foreground">{media.label}</Text>
           {media.kind === 'video' ? <VideoWithComments key={media.key} videoId={media.videoId} comments={videoComments} /> : <ImageGrid urls={[media.url]} />}
+          {media.kind === 'video' && !videoComments.length && others.length ? (
+            <View className="gap-2 rounded-2xl bg-brand-soft p-3">
+              <Text className="text-[13px] leading-5 text-foreground">Video này chưa có nhận xét theo thời điểm. Giáo viên nhận xét ở:</Text>
+              {others.map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => onOpen(item.key)}
+                  className="flex-row items-center gap-2 rounded-xl bg-surface px-3 py-2.5 active:opacity-80">
+                  <Ionicons name="play-circle" size={18} color={brand} />
+                  <Text className="flex-1 text-[13.5px] font-semibold text-foreground" numberOfLines={2}>
+                    {item.label}
+                  </Text>
+                  <Text className="text-[12px] font-bold text-brand">{videoCommentsOf(item, comments).length} nhận xét</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : (
         <InfoCard icon="cloud-offline-outline" title="Không có nội dung bài nộp" body="Bài nộp này không có video hoặc hình ảnh để hiển thị." />
@@ -440,6 +472,13 @@ function ResultContent({
       ) : null}
     </View>
   );
+}
+
+/** Nhận xét theo mốc của 1 video — nhận xét không gắn videoId (bài cũ 1 video) tính cho mọi video */
+function videoCommentsOf(media: ResultMedia, comments: TimestampComment[]) {
+  return media.kind === 'video'
+    ? comments.filter((comment) => comment.kind !== 'image' && (!comment.videoId || comment.videoId === media.videoId))
+    : [];
 }
 
 function ResultMediaPlaylist({

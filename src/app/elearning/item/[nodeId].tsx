@@ -136,7 +136,10 @@ export default function ElearningItemScreen() {
           {node.is_completed ? <Badge label="Đã học xong" tone="success" /> : null}
         </View>
 
-        <Text className="text-[19px] font-bold leading-7 text-foreground">{nodeTitle(node)}</Text>
+        {/* TVST đi làm tự có khối đầu bài (Unit · tên) ngay dưới — thêm dòng này nữa là tên bài lặp 3 lần */}
+        {node.type === 'practice' && (node.ref_data as PracticeLesson | undefined)?.practice_type === 'tvst_business' ? null : (
+          <Text className="text-[19px] font-bold leading-7 text-foreground">{nodeTitle(node)}</Text>
+        )}
 
         {node.type === 'video' ? <VideoBlock classId={classId} video={node.ref_data as LessonVideo} /> : null}
         {node.type === 'lesson_content' ? <LessonBlock content={node.ref_data as LessonContent} /> : null}

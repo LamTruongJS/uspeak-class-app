@@ -58,6 +58,13 @@ function Header({
 
 type StudentFilter = 'learning' | 'done' | 'all';
 
+/** Thứ tự loại lớp ở "Lớp học của tôi": Zoom trước, rồi E-Learning, rồi Combo, còn lại xếp cuối */
+const COURSE_TYPE_ORDER = ['zoom', 'elearning', 'combo'];
+const courseTypeRank = (type?: string) => {
+  const i = COURSE_TYPE_ORDER.indexOf(String(type ?? '').toLowerCase());
+  return i < 0 ? COURSE_TYPE_ORDER.length : i;
+};
+
 function StudentClasses() {
   const tabBarSpace = useTabBarSpace();
   const { data, isLoading, isError, error, refetch } = useMyClasses();
@@ -79,7 +86,9 @@ function StudentClasses() {
         : filter === 'done'
           ? all.filter((c) => (c.progress ?? 0) >= 100)
           : all;
-    return q ? byFilter.filter((c) => fold(`${c.display_name ?? ''} ${c.class_name} ${c.class_code}`).includes(q)) : byFilter;
+    const found = q ? byFilter.filter((c) => fold(`${c.display_name ?? ''} ${c.class_name} ${c.class_code}`).includes(q)) : byFilter;
+    // Zoom → E-Learning → Combo → loại khác (anh chốt 06/11/2026); cùng loại giữ nguyên thứ tự BE trả (sort ổn định)
+    return [...found].sort((a, b) => courseTypeRank(a.course_type) - courseTypeRank(b.course_type));
   }, [all, filter, q]);
 
   const open = (c: StudentClassItem) => {

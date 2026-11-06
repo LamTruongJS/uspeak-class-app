@@ -35,7 +35,7 @@ export function ImagesEditor({ images, onChange, max = 10, disabled }: Props) {
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
+      showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Academy để bật quyền camera.');
       return;
     }
     const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 });

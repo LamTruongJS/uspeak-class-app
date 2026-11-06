@@ -1,4 +1,4 @@
-# Đưa app Uspeak Class lên App Store & Google Play
+# Đưa app Uspeak Academy lên App Store & Google Play
 
 > Viết 15/10/2026. Giá và thời gian chờ là theo thông tin đến 2026 — kiểm tra lại trên trang chính thức lúc đăng ký.
 

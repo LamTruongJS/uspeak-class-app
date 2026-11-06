@@ -8,13 +8,16 @@ import { useTabBarSpace } from '@/components/ui/floating-tab-bar';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import {
   STATUS_FILTERS,
-  useAllMyAssignments,
   useMyAssignments,
+  useMyAssignmentTotal,
+  useMyTodoAssignments,
   type AssignmentStatusFilter,
   type StudentAssignmentItem,
 } from '@/features/assignments/api';
 import { AssignmentCard } from '@/features/assignments/assignment-card';
 import { openAssignment } from '@/features/assignments/detail-api';
+import { useMyClasses } from '@/features/classes/api';
+import { PickerSheet, type PickerOption } from '@/features/video-scripts/components';
 import { GradingQueueScreen } from '@/features/assignments/grading-queue';
 import { getErrorMessage } from '@/lib/api/client';
 import { addDays, startOfDay, startOfWeek } from '@/lib/format';
@@ -71,37 +74,53 @@ function groupByDeadline(items: StudentAssignmentItem[], now: number): Section[]
   return buckets.filter((b) => b.data.length);
 }
 
-/** Bài tập của mọi lớp — mặc định lọc "Chưa nộp" để thấy ngay việc cần làm. */
+/** Bài tập của mọi lớp — mặc định "Tất cả" (anh chốt 06/11/2026); vẫn nhóm theo hạn nên việc cần làm nằm trên, bài đã nộp xuống cuối. */
 function StudentAssignments() {
   const brand = useThemeColor('brand');
   const muted = useThemeColor('muted');
   const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
-  const [status, setStatus] = useState<AssignmentStatusFilter>('not_submitted');
+  const [status, setStatus] = useState<AssignmentStatusFilter>('all');
   const [search, setSearch] = useState('');
+  /** Lọc theo lớp ('' = mọi lớp) — danh sách lớp là các lớp mình đang tham gia học (anh yêu cầu 06/11/2026) */
+  const [classId, setClassId] = useState('');
+  const [pickingClass, setPickingClass] = useState(false);
   const [now] = useState(() => Date.now());
   // Hoãn giá trị tìm kiếm: gõ nhanh thì chỉ gọi API ở nhịp nghỉ, không mỗi phím một lượt
-  const q = useMyAssignments({ status, search: useDeferredValue(search.trim()) });
-  const all = useAllMyAssignments();
-  const pull = usePullRefresh(() => Promise.all([q.refetch(), all.refetch()]));
+  const q = useMyAssignments({ status, search: useDeferredValue(search.trim()), classId: classId || undefined });
+  // Số đếm lấy từ server (danh sách "Chưa nộp" + tổng "Quá hạn" theo lớp) — 200 bài đầu không đủ cho tài khoản nhiều bài
+  const todoAll = useMyTodoAssignments();
+  const overdueTotal = useMyAssignmentTotal('overdue', classId || undefined);
+  const classes = useMyClasses();
+  const classOptions = useMemo<PickerOption[]>(() => {
+    const pending = new Map<string, number>();
+    // Chỉ đếm "chưa nộp" (còn hạn) như chip — đếm cả quá hạn thì lớp cũ đã xong cũng hiện vài chục bài
+    for (const a of todoAll.data ?? []) pending.set(a.class_id, (pending.get(a.class_id) ?? 0) + 1);
+    // Lớp đang học lên trước lớp đã xong; trong mỗi nhóm lớp còn nhiều bài chưa nộp lên trước
+    const done = (c: { progress?: number }) => Number((c.progress ?? 0) >= 100);
+    const list = [...(classes.data ?? [])].sort((x, y) => done(x) - done(y) || (pending.get(y._id) ?? 0) - (pending.get(x._id) ?? 0));
+    return [
+      { value: '', label: 'Tất cả lớp' },
+      ...list.map((c) => {
+        const n = pending.get(c._id) ?? 0;
+        return {
+          value: c._id,
+          label: c.display_name || c.class_name,
+          sublabel: `${c.class_code}${done(c) ? ' · Đã hoàn thành' : ''}${n ? ` · ${n} bài chưa nộp` : ''}`,
+          keywords: c.class_name,
+        };
+      }),
+    ];
+  }, [classes.data, todoAll.data]);
+  const pickedClass = classId ? classOptions.find((o) => o.value === classId) : undefined;
+  const pull = usePullRefresh(() => Promise.all([q.refetch(), todoAll.refetch(), overdueTotal.refetch()]));
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.data) ?? [], [q.data]);
 
-  // Số đếm cho tiêu đề + chip lọc (từ danh sách đầy đủ ≤ 200 bài, giống Trang chủ)
-  const counts = useMemo(() => {
-    const list = all.data ?? [];
-    // Khớp đúng bộ lọc của server: "Chưa nộp" KHÔNG gồm bài đã quá hạn (đó là "Quá hạn")
-    const todo = list.filter((a) => a.student_status === 'not_submitted');
-    const soon = todo.filter((a) => {
-      const d = a.submission_deadline ? new Date(a.submission_deadline).getTime() : null;
-      return d !== null && d >= now && d - now < 2 * 86_400_000;
-    }).length;
-    return {
-      todo: todo.length,
-      soon,
-      overdue: list.filter((a) => a.student_status === 'overdue').length,
-      redo: list.filter((a) => a.submission?.status === 'redo_requested').length,
-    };
-  }, [all.data, now]);
+  // Số trên chip lọc — khớp bộ lọc của server: "Chưa nộp" KHÔNG gồm bài đã quá hạn (đó là "Quá hạn")
+  const counts = {
+    todo: (todoAll.data ?? []).filter((a) => !classId || a.class_id === classId).length,
+    overdue: overdueTotal.data ?? 0,
+  };
 
   // Chỉ nhóm theo hạn khi đang xem việc cần làm; các bộ lọc khác giữ thứ tự mới → cũ
   const sections = useMemo<Section[]>(() => {
@@ -134,6 +153,32 @@ function StudentAssignments() {
         {search ? (
           <Pressable hitSlop={8} onPress={() => setSearch('')} accessibilityLabel="Xoá tìm kiếm">
             <Ionicons name="close-circle" size={18} color={muted} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Chọn lớp: 1 nút mở bảng chọn có ô tìm (lớp có thể vài chục) — đang lọc thì nút đỏ nhạt + nút ✕ bỏ lọc */}
+      <View className="flex-row items-center gap-2 px-4 pt-3">
+        <Pressable
+          onPress={() => setPickingClass(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Lọc theo lớp"
+          className={`h-10 flex-1 flex-row items-center gap-2 rounded-full border px-4 active:opacity-80 ${
+            pickedClass ? 'border-brand/30 bg-brand-soft' : 'border-border bg-surface'
+          }`}>
+          <Ionicons name="school-outline" size={17} color={pickedClass ? brand : muted} />
+          <Text className={`flex-1 text-[14px] font-semibold ${pickedClass ? 'text-brand' : 'text-foreground'}`} numberOfLines={1}>
+            {pickedClass ? pickedClass.label : 'Tất cả lớp'}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={pickedClass ? brand : muted} />
+        </Pressable>
+        {pickedClass ? (
+          <Pressable
+            onPress={() => setClassId('')}
+            hitSlop={6}
+            accessibilityLabel="Bỏ lọc lớp"
+            className="h-10 w-10 items-center justify-center rounded-full bg-surface-muted active:opacity-80">
+            <Ionicons name="close" size={18} color={muted} />
           </Pressable>
         ) : null}
       </View>
@@ -228,6 +273,16 @@ function StudentAssignments() {
           renderItem={({ item }) => <AssignmentCard item={item} showClass onPress={() => openAssignment(item)} />}
         />
       )}
+
+      <PickerSheet
+        visible={pickingClass}
+        title="Lọc theo lớp"
+        options={classOptions}
+        value={classId}
+        searchPlaceholder="Tìm lớp…"
+        onSelect={setClassId}
+        onClose={() => setPickingClass(false)}
+      />
     </View>
   );
 }

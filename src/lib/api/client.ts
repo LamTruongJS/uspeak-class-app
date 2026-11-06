@@ -52,9 +52,12 @@ export function refreshSession(): Promise<SessionTokens | null> {
         await tokenStorage.set(tokens);
         return tokens;
       } catch (err) {
-        // Mất mạng thì KHÔNG coi là hết phiên — giữ token để thử lại sau.
-        if (isAxiosError(err) && !err.response) throw err;
-        return null;
+        // CHỈ khi server từ chối refresh token (401/403/400) mới là hết phiên. Mất mạng, class-be/CRM
+        // lỗi 5xx, quá hạn chờ… → ném lỗi, GIỮ token để lần sau thử lại (bản cũ trả null với mọi
+        // lỗi có response → 502 lúc deploy cũng đá người dùng ra màn đăng nhập).
+        const status = isAxiosError(err) ? err.response?.status : undefined;
+        if (status === 400 || status === 401 || status === 403) return null;
+        throw err;
       }
     })().finally(() => {
       refreshing = null;
