@@ -21,6 +21,7 @@ import {
   VideoContent,
   VoiceContent,
 } from './message-content';
+import { reactionGlyph } from './message-actions';
 import { SwipeToReply } from './swipe-to-reply';
 import type { ChatMessage } from './types';
 import { AppIcon } from '@/components/ui/app-icon';
@@ -98,14 +99,14 @@ function MessageItemBase({
   const showDay = !older || !isSameDay(new Date(older.created_at), created);
   const dayHeader = showDay ? (
     <View className="items-center py-3">
-      <Text className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-muted">{dayLabel(created)}</Text>
+      <Text className="rounded-full bg-surface-muted px-3 py-0.5 text-[11px] font-medium text-muted">{dayLabel(created)}</Text>
     </View>
   ) : null;
   const divider = unreadDivider ? (
     <View className="flex-row items-center gap-2 py-3">
-      <View className="h-px flex-1 bg-brand opacity-40" />
-      <Text className="text-xs font-semibold text-brand">{unreadDivider} tin chưa đọc</Text>
-      <View className="h-px flex-1 bg-brand opacity-40" />
+      <View className="h-px flex-1 bg-active" />
+      <Text className="text-[11px] font-semibold text-brand">{unreadDivider} tin chưa đọc</Text>
+      <View className="h-px flex-1 bg-active" />
     </View>
   ) : null;
 
@@ -216,38 +217,38 @@ function MessageItemBase({
                   {showMeta && m.message_type !== 'sticker' ? (
                     <View className="absolute bottom-1.5 right-1.5 flex-row items-center gap-1 rounded-full bg-black/45 px-2 py-0.5">
                       <Text className="text-[10.5px] font-medium text-white">{time}</Text>
-                      {mine && !m.pending ? <Ionicons name="checkmark-done" size={12} color="#ffffff" /> : null}
                     </View>
                   ) : null}
                 </View>
               ) : (
-                <View className={`gap-1.5 px-3.5 py-2 ${mine ? 'bg-brand' : 'bg-surface'} ${m.pending ? 'opacity-70' : ''}`} style={radius}>
+                // Bong bóng theo chat-task / web (04/11/2026): của mình xanh nhạt, người khác xám nhạt, chữ màu
+                // thường — bỏ khối màu thương hiệu chữ trắng. Nội dung bên trong vì thế dùng màu thường (mine={false}).
+                <View className={`gap-1.5 px-3.5 py-2 ${mine ? 'bg-bubble-mine' : 'bg-bubble-other'} ${m.pending ? 'opacity-70' : ''}`} style={radius}>
                   {m.forward_from ? (
                     <View className="flex-row items-center gap-1">
-                      <Ionicons name="arrow-redo" size={11} color={mine ? '#ffffffcc' : muted} />
-                      <Text className={`text-[11.5px] italic ${mine ? 'text-on-brand opacity-80' : 'text-muted'}`}>
+                      <Ionicons name="arrow-redo" size={11} color={muted} />
+                      <Text className="text-[11.5px] italic text-muted">
                         Chuyển tiếp từ {m.forward_from.sender?.full_name}
                       </Text>
                     </View>
                   ) : null}
-                  {m.reply_to_message ? <ReplyQuote m={m} mine={mine} onPress={onJumpTo} /> : null}
+                  {m.reply_to_message ? <ReplyQuote m={m} mine={false} onPress={onJumpTo} /> : null}
                   <BubbleBody
                     m={m}
-                    mine={mine}
+                    mine={false}
                     onCancelUpload={() => onCancelUpload(m)}
-                    reserveMeta={showMeta ? metaSpacer(time, mine, m.is_edited, m.is_pinned) : undefined}
+                    reserveMeta={showMeta ? metaSpacer(time, m.is_edited, m.is_pinned) : undefined}
                   />
                   {showMeta ? (
                     <View className="absolute bottom-1.5 right-2.5 flex-row items-center gap-1">
-                      {m.is_pinned ? <AppIcon name="pushpin" size={10} color={mine ? '#ffffffb3' : muted} /> : null}
-                      <Text className={`text-[10.5px] ${mine ? 'text-on-brand opacity-75' : 'text-muted'}`}>
+                      {m.is_pinned ? <AppIcon name="pushpin" size={10} color={muted} /> : null}
+                      <Text className="text-[10.5px] text-muted">
                         {m.is_edited ? 'Đã sửa · ' : ''}
                         {time}
                       </Text>
-                      {mine && !m.pending ? <Ionicons name="checkmark-done" size={13} color={seenLabel ? '#ffffff' : '#ffffffa6'} /> : null}
                     </View>
                   ) : m.is_edited ? (
-                    <Text className={`text-[10.5px] ${mine ? 'text-on-brand opacity-70' : 'text-muted'}`}>Đã sửa</Text>
+                    <Text className="text-[10.5px] text-muted">Đã sửa</Text>
                   ) : null}
                 </View>
               )}
@@ -300,10 +301,10 @@ function isJumboEmoji(content?: string) {
  * Chữ TRONG SUỐT nối vào cuối dòng chữ cuối để giờ gửi (đặt tuyệt đối ở góc dưới phải) không đè lên
  * chữ — cách WhatsApp/Zalo làm. Phải là ký tự THẬT (chính chuỗi giờ, cùng cỡ chữ với giờ): toàn khoảng
  * trắng thì dòng gần đầy sẽ cho khoảng trắng tràn ra ngoài thay vì xuống dòng → giờ đè lên chữ.
- * "MM" chừa chỗ cho icon (ghim / đã xem). Dấu cách thường ở đầu để được ngắt dòng trước phần chừa chỗ.
+ * "MM" chừa chỗ cho icon ghim (bỏ dấu ✓✓ "đã gửi" 06/11/2026 — web không có; gửi lỗi đã có dòng báo lỗi riêng). Dấu cách thường ở đầu để được ngắt dòng trước phần chừa chỗ.
  */
-function metaSpacer(time: string, mine: boolean, edited?: boolean, pinned?: boolean) {
-  return ` \u00A0${pinned ? 'MM' : ''}${edited ? 'Đã sửa · ' : ''}${time}${mine ? 'MM' : ''}`;
+function metaSpacer(time: string, edited?: boolean, pinned?: boolean) {
+  return ` \u00A0${pinned ? 'MM' : ''}${edited ? 'Đã sửa · ' : ''}${time}`;
 }
 
 function SenderAvatar({ message, token }: { message: ChatMessage; token?: string }) {
@@ -401,8 +402,8 @@ function Reactions({ m, myId, mine, onToggle }: { m: ChatMessage; myId?: string;
           key={emoji}
           onPress={() => onToggle(emoji)}
           hitSlop={4}
-          className={`flex-row items-center gap-0.5 rounded-full border-2 border-background px-1.5 py-px ${g.mineReacted ? 'bg-brand-soft' : 'bg-surface'}`}>
-          <Text className="text-[13px]">{emoji}</Text>
+          className={`flex-row items-center gap-0.5 rounded-full border-2 border-surface px-1.5 py-px ${g.mineReacted ? 'bg-brand-soft' : 'bg-surface'}`}>
+          <Text className="text-[13px]">{reactionGlyph(emoji)}</Text>
           {g.count > 1 ? <Text className={`text-[11px] font-bold ${g.mineReacted ? 'text-brand' : 'text-muted'}`}>{g.count}</Text> : null}
         </Pressable>
       ))}

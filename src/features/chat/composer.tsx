@@ -341,36 +341,44 @@ export function Composer(props: Props) {
             <Ionicons name={emojiPanel ? 'keypad-outline' : 'happy-outline'} size={22} color={emojiPanel ? brand : muted} />
           </Pressable>
         </View>
+        {/* Pressable PHẢI nằm ngoài khung có hiệu ứng ZoomIn: iPhone (kiến trúc mới) giữ vùng bấm theo
+            cỡ 0 lúc bắt đầu phóng to → lần chạm đầu trượt, phải bấm 2 lần mới gửi (lỗi 04/11/2026).
+            Chỉ phần hình tròn bên trong chạy hiệu ứng, vùng bấm luôn đủ cỡ. */}
         {hasText || editing ? (
-          <Animated.View key="send" entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(90)}>
-            <Pressable
-              onPress={submit}
-              disabled={!hasText}
-              accessibilityLabel={editing ? 'Lưu' : 'Gửi'}
-              className={`h-[42px] w-[42px] items-center justify-center rounded-full active:opacity-80 ${hasText ? 'bg-brand' : 'bg-surface-muted'}`}>
+          <Pressable
+            key="send"
+            onPress={submit}
+            disabled={!hasText}
+            accessibilityLabel={editing ? 'Lưu' : 'Gửi'}
+            className="h-[42px] w-[42px] active:opacity-80">
+            <Animated.View
+              entering={ZoomIn.duration(140)}
+              exiting={ZoomOut.duration(90)}
+              className={`h-[42px] w-[42px] items-center justify-center rounded-full ${hasText ? 'bg-brand' : 'bg-surface-muted'}`}>
               <Ionicons
                 name={editing ? 'checkmark' : 'send'}
                 size={18}
                 color={hasText ? onBrand : muted}
                 style={editing ? undefined : { marginLeft: 3 }}
               />
-            </Pressable>
-          </Animated.View>
+            </Animated.View>
+          </Pressable>
         ) : (
           // Ô trống → 👍 gửi nhanh 1 chạm như Messenger. Chèn biểu tượng vào chữ thì dùng nút mặt
           // cười trong ô nhập (mở bảng emoji ngay chỗ bàn phím).
-          <Animated.View key="like" entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(90)}>
-            <Pressable
-              hitSlop={4}
-              onPress={() => {
-                void Haptics.selectionAsync();
-                onSendText(QUICK_EMOJI);
-              }}
-              accessibilityLabel="Gửi biểu tượng thích"
-              className="h-[42px] w-10 items-center justify-center active:scale-90">
+          <Pressable
+            key="like"
+            hitSlop={4}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSendText(QUICK_EMOJI);
+            }}
+            accessibilityLabel="Gửi biểu tượng thích"
+            className="h-[42px] w-10 active:scale-90">
+            <Animated.View entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(90)} className="h-[42px] w-10 items-center justify-center">
               <Ionicons name="thumbs-up" size={25} color={brand} />
-            </Pressable>
-          </Animated.View>
+            </Animated.View>
+          </Pressable>
         )}
       </View>
 
@@ -482,7 +490,7 @@ function useMediaPickers(onMedia: (assets: PickedAsset[]) => void, onFiles: (doc
     camera: async (video: boolean) => {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Class để bật quyền camera.');
+        showToast('warning', 'Chưa có quyền camera', 'Vào Cài đặt → Uspeak Academy để bật quyền camera.');
         return;
       }
       const res = await ImagePicker.launchCameraAsync({ mediaTypes: [video ? 'videos' : 'images'], quality: 1, videoMaxDuration: 300 });

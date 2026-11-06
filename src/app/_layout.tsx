@@ -47,6 +47,9 @@ export default function RootLayout() {
     headerStyle: { backgroundColor: background },
     headerTintColor: foreground,
     contentStyle: { backgroundColor: background, paddingBottom: isMenuRoute(route.name) ? TAB_BAR_SPACE : 0 },
+    // app.json để orientation "default" (cho phép xoay) CHỈ để màn video-fullscreen xoay ngang được —
+    // mọi màn khác khoá dọc ở đây như trước
+    orientation: 'portrait' as const,
   });
   const status = useAuthStore((s) => s.status);
   const bootstrap = useAuthStore((s) => s.bootstrap);
@@ -93,6 +96,17 @@ export default function RootLayout() {
               <Stack.Screen name="chat/media/[roomId]" options={{ title: 'Ảnh, tệp, link' }} />
               <Stack.Screen name="assignment/[id]" options={{ title: 'Bài tập' }} />
               <Stack.Screen name="result/[id]" options={{ title: 'Kết quả' }} />
+              <Stack.Screen
+                name="video-fullscreen"
+                options={{
+                  headerShown: false,
+                  orientation: 'landscape',
+                  animation: 'fade',
+                  statusBarHidden: true,
+                  navigationBarHidden: true,
+                  contentStyle: { backgroundColor: '#000' },
+                }}
+              />
               <Stack.Screen name="submit-success" options={{ title: '' }} />
               <Stack.Screen name="features" options={{ title: 'Tất cả tính năng' }} />
               <Stack.Screen name="notifications" options={{ title: 'Thông báo' }} />

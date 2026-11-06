@@ -199,7 +199,7 @@ export function AlbumViewer({ uris, index, onClose }: { uris: string[]; index: n
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       {/* Modal trên Android là cây view riêng → phải có GestureHandlerRootView thì cử chỉ mới chạy */}
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <FlatList
           data={uris}
           horizontal
@@ -217,7 +217,7 @@ export function AlbumViewer({ uris, index, onClose }: { uris: string[]; index: n
                 <ZoomableImage uri={item} onDismiss={onClose} pager onZoomChange={setZoomed} />
               </View>
             ) : (
-              <View style={{ width, height }} />
+              <View style={{ width, height, backgroundColor: '#000' }} />
             )
           }
         />

@@ -53,6 +53,25 @@ export function useUnreadTotal() {
   );
 }
 
+/**
+ * Danh sách id phòng còn tin chưa đọc (chuỗi đã sort, để so sánh rẻ) — PushBridge dùng để gỡ thông báo
+ * của phòng vừa đọc xong khỏi khay.
+ */
+export function useUnreadRoomKey() {
+  return (
+    useQuery({
+      queryKey: chatKeys.rooms,
+      queryFn: fetchRooms,
+      select: (rooms: ChatRoomItem[]) =>
+        rooms
+          .filter((r) => (r.unread_count ?? 0) > 0)
+          .map((r) => r._id)
+          .sort()
+          .join(','),
+    }).data ?? ''
+  );
+}
+
 export function useRoomDetail(roomId: string) {
   return useQuery({
     queryKey: chatKeys.detail(roomId),

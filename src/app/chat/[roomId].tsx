@@ -10,7 +10,7 @@ import { useActionSheet } from '@/components/ui/action-sheet';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { LoadingView, StateView } from '@/components/ui/state-view';
 import { activeRoom } from '@/features/chat/active-room';
-import { chatApi, patchRoom, trimRoomMessages, upsertMessage, useChatPermissions, useChatRoom, useRoomMembers, useRoomMessages } from '@/features/chat/api';
+import { chatApi, patchMessage, patchRoom, trimRoomMessages, upsertMessage, useChatPermissions, useChatRoom, useRoomMembers, useRoomMessages } from '@/features/chat/api';
 import { Composer, type PickedAsset, type PickedDoc } from '@/features/chat/composer';
 import { getDraft, saveDraft } from '@/features/chat/drafts';
 import { roomTitle } from '@/features/chat/format';
@@ -33,6 +33,7 @@ import { useMediaToken } from '@/lib/media';
 import { useStableCallback } from '@/lib/use-stable-callback';
 import { useAuthStore } from '@/stores/auth.store';
 import { useThemeColor } from '@/theme/use-theme-color';
+import { ChatTheme } from '@/features/chat/chat-theme';
 
 const IMAGE_CONTENT = '[Hình ảnh]';
 const TYPING_THROTTLE_MS = 2500;
@@ -54,12 +55,22 @@ const RECEIPT_MAX_MEMBERS = 50;
  * Tính năng: chữ (@nhắc tên), ảnh/album, video, tệp, tin thoại, trả lời (vuốt/menu), sửa, ghim,
  * chuyển tiếp, thu hồi, cảm xúc, nhảy tới tin gốc/tin ghim/kết quả tìm, "đang nhập…", đã xem, nháp theo phòng.
  */
+/** Bọc bảng màu khung hội thoại (navy như web) — mọi hook màu của màn phòng phải chạy BÊN TRONG phạm vi này */
 export default function ChatRoomScreen() {
+  return (
+    <ChatTheme>
+      <ChatRoom />
+    </ChatTheme>
+  );
+}
+
+function ChatRoom() {
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const insets = useSafeAreaInsets();
   const brand = useThemeColor('brand');
   const onBrand = useThemeColor('on-brand');
   const foreground = useThemeColor('foreground');
+  const surface = useThemeColor('surface');
   const user = useAuthStore((s) => s.user);
   const myId = user?._id;
 
@@ -239,6 +250,14 @@ export default function ChatRoomScreen() {
   // ── Đã xem: con trỏ đã đọc của người khác (chỉ phòng nhỏ) ──
   const memberCount = room?.member_count ?? members.data?.length ?? 0;
   const isDirect = room?.type === 'direct';
+  /**
+   * Ẩn tên + avatar người gửi CHỈ khi đây là phòng 1-1 của chính mình (người bên trái chỉ có thể là người
+   * kia). Admin/GV mở phòng 1-1 của 2 người khác thì tin nào cũng nằm bên trái → phải hiện tên + avatar ở
+   * đầu mỗi cụm như phòng nhóm (web luôn hiện), không thì không biết ai gửi (anh báo 06/11/2026).
+   * Chưa có danh sách thành viên (đang tải / không có quyền xem) thì dựa vào việc mình đã từng gửi tin chưa.
+   */
+  const ownDirect =
+    isDirect && (members.data ? members.data.some((x) => x._id === myId) : listData.some((x) => x.sender?._id === myId));
   const receiptsEnabled = isDirect || (memberCount > 0 && memberCount <= RECEIPT_MAX_MEMBERS);
   useEffect(() => {
     const s = getChatSocket();
@@ -573,9 +592,26 @@ export default function ChatRoomScreen() {
     });
   };
 
-  // Thả cảm xúc: lỗi thì thôi (không đáng một hộp thoại); server dội message_reacted về để cập nhật.
-  const react = (m: ChatMessage, emoji: string) => {
-    void emitWithAck('react_message', { message_id: m._id, room_id: roomId, emoji });
+  /**
+   * Thả cảm xúc — cập nhật NGAY trên máy (bản cũ chờ server dội message_reacted về nên thấy "lag",
+   * mạng chậm là nửa giây tới vài giây), rồi gửi socket. Logic bật/tắt giống toggleReaction của
+   * class-be: cùng emoji → gỡ, khác → thay. Lỗi → trả lại như cũ + báo (bản cũ nuốt lỗi nên người
+   * dùng tưởng app treo). Kết quả server (ack / message_reacted) vẫn là bản cuối cùng.
+   */
+  const react = async (m: ChatMessage, emoji: string) => {
+    if (!myId) return;
+    const before = m.reactions ?? [];
+    const others = before.filter((r) => r.user_id !== myId);
+    const had = before.find((r) => r.user_id === myId)?.emoji;
+    const next = had === emoji ? others : [...others, { user_id: myId, emoji }];
+    patchMessage(roomId, m._id, (x) => ({ ...x, reactions: next }));
+    const res = await emitWithAck<{ reactions: ChatMessage['reactions'] }>('react_message', { message_id: m._id, room_id: roomId, emoji });
+    if (res.success && res.data?.reactions) {
+      patchMessage(roomId, m._id, (x) => ({ ...x, reactions: res.data?.reactions }));
+    } else if (!res.success) {
+      patchMessage(roomId, m._id, (x) => ({ ...x, reactions: before }));
+      showToast('error', 'Chưa thả được cảm xúc', res.error);
+    }
   };
 
   const pin = async (m: ChatMessage, pinned: boolean) => {
@@ -670,11 +706,13 @@ export default function ChatRoomScreen() {
   const title = room ? roomTitle(room) : 'Chat';
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-surface">
       <Stack.Screen
         options={{
           // Kiểu Messenger: ảnh phòng + tên canh trái, bấm vào mở Thông tin phòng
           headerTitleAlign: 'left',
+          // Nền trắng liền với khung hội thoại (bảng màu chat), không xám như các màn khác
+          headerStyle: { backgroundColor: surface },
           // Màn này tự vẽ ô tiêu đề (không qua HeaderRow) nên cần nút back của hệ thống
           headerBackVisible: true,
           headerTitle: () => (
@@ -775,7 +813,7 @@ export default function ChatRoomScreen() {
                   older={listData[index - 1]}
                   newer={listData[index + 1]}
                   myId={myId}
-                  isDirect={isDirect}
+                  isDirect={ownDirect}
                   onLongPress={setActionFor}
                   onRetry={stableRetry}
                   onCancelUpload={stableCancelUpload}

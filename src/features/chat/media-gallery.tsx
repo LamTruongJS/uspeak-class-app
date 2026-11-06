@@ -54,8 +54,9 @@ export function MediaGallery({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      {/* style chứ không className: nền đen phải chắc chắn phủ kín (thấy màn sau lộ ra khi dùng className) */}
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+      {/* Nền TRONG SUỐT: trang ảnh (ZoomableImage) tự vẽ nền đen để mờ dần khi vuốt đóng; trang video /
+          trang trống tự tô đen bằng style (className từng không phủ kín). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <FlatList
           data={items}
           horizontal
@@ -72,7 +73,7 @@ export function MediaGallery({
             const thumb = thumbMediaUrl(it.thumbnail_url || (it.kind === 'image' ? it.url : null), token, Math.round(width));
             if (it.kind === 'video') {
               return (
-                <Pressable onPress={() => full && setVideo(full)} style={{ width, height }} className="items-center justify-center">
+                <Pressable onPress={() => full && setVideo(full)} style={{ width, height, backgroundColor: '#000' }} className="items-center justify-center">
                   {thumb ? (
                     <Image
                       source={{ uri: thumb, cacheKey: thumbCacheKey(it.thumbnail_url, width) }}
@@ -91,7 +92,7 @@ export function MediaGallery({
                 <ZoomableImage uri={full} onDismiss={onClose} pager onZoomChange={setZoomed} />
               </View>
             ) : (
-              <View style={{ width, height }} />
+              <View style={{ width, height, backgroundColor: '#000' }} />
             );
           }}
         />

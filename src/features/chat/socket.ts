@@ -34,7 +34,10 @@ export function connectChatSocket(): Socket {
   socket = io(`${API_ORIGIN}/chat`, {
     // Hàm này chạy lại ở MỌI lần (re)connect → luôn lấy token mới nhất sau khi refresh.
     auth: (cb) => {
-      void tokenStorage.get().then((t) => cb({ token: t?.accessToken }));
+      void tokenStorage
+        .get()
+        .then((t) => cb({ token: t?.accessToken }))
+        .catch(() => cb({})); // Keychain chưa đọc được → lần nối lại sau sẽ có
     },
     transports: ['websocket'],
     reconnection: true,

@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Uspeak Class",
+    "name": "Uspeak Academy",
     "slug": "uspeak-class-app",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "uspeakclass",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "vn.uspeak.classapp",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "vn.uspeak.classapp"
+      "package": "vn.uspeak.classapp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -33,17 +34,15 @@
         {
           "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 120,
-          "dark": {
-            "backgroundColor": "#0B0D12"
-          }
+          "imageWidth": 120
         }
       ],
       "expo-secure-store",
       [
         "expo-audio",
         {
-          "microphonePermission": "Uspeak cần dùng micro để ghi âm câu trả lời khi bạn làm bài luyện nói."
+          "microphonePermission": "Uspeak cần dùng micro để ghi âm bài luyện nói và gửi tin nhắn thoại cho lớp.",
+          "enableBackgroundPlayback": false
         }
       ],
       [
@@ -56,7 +55,9 @@
       [
         "expo-notifications",
         {
-          "color": "#b62025"
+          "color": "#b62025",
+          "icon": "./assets/images/notification-icon.png",
+          "enableBackgroundRemoteNotifications": true
         }
       ],
       "expo-asset",
@@ -67,6 +68,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0f4c8cc0-3a33-4c8a-83c3-8f9c7b02873c"
+      }
+    },
+    "owner": "lamtruong"
   }
 }

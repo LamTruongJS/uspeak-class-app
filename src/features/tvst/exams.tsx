@@ -88,7 +88,11 @@ export function CodeSwitchExam({
   const navy = useThemeColor('navy');
   const onBrand = useThemeColor('on-brand');
   const success = useThemeColor('success');
-  const [reading, setReading] = useState<{ p: number; part: number; kind: 'text' | 'blank' } | null>(null);
+  const [reading, setReading] = useState<{
+    p: number;
+    part: number;
+    kind: 'text' | 'blank';
+  } | null>(null);
   const [rate, setRate] = useState(1);
   const run = useRef(0);
   const inputs = useRef<Record<string, TextInput | null>>({});
@@ -155,7 +159,9 @@ export function CodeSwitchExam({
               </Pressable>
             ))}
           </View>
-          <Pressable onPress={() => (playing ? stopAll() : void playAll())} className="flex-row items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 active:opacity-80">
+          <Pressable
+            onPress={() => (playing ? stopAll() : void playAll())}
+            className="flex-row items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 active:opacity-80">
             <Ionicons name={playing ? 'stop' : 'headset'} size={14} color={onBrand} />
             <Text className="text-[12.5px] font-bold text-on-brand">{playing ? 'Dừng' : 'Phát toàn bài'}</Text>
           </Pressable>
@@ -192,24 +198,33 @@ export function CodeSwitchExam({
                 const state = blankState(key, results, near);
                 const width = blank.length || blank.en.length || 12;
                 const active = audio.playingKey === speakKey || lit;
+                const speaker = (
+                  <Pressable
+                    hitSlop={6}
+                    onPress={() => {
+                      if (playing) stopAll();
+                      audio.toggle(blank.audioVi, speakKey);
+                    }}
+                    className={`h-6 w-6 items-center justify-center rounded-full ${active ? 'bg-navy' : ''}`}>
+                    <Ionicons name={audio.playingKey === speakKey ? 'pause' : 'volume-high'} size={13} color={active ? onBrand : navy} />
+                  </Pressable>
+                );
+                if (readOnly) {
+                  return (
+                    <View key={k} className="mr-1 max-w-full flex-row flex-wrap items-center">
+                      {speaker}
+                      <ReadOnlyBlank value={answers[key] || ''} state={state} answer={blank.en} />
+                    </View>
+                  );
+                }
                 return (
-                  <View key={k} className="mr-1 flex-row items-center">
-                    <Pressable
-                      hitSlop={6}
-                      onPress={() => {
-                        if (playing) stopAll();
-                        audio.toggle(blank.audioVi, speakKey);
-                      }}
-                      className={`h-6 w-6 items-center justify-center rounded-full ${active ? 'bg-navy' : ''}`}>
-                      <Ionicons name={audio.playingKey === speakKey ? 'pause' : 'volume-high'} size={13} color={active ? onBrand : navy} />
-                    </Pressable>
+                  <View key={k} className="mr-1 max-w-full flex-row items-center">
+                    {speaker}
                     <TextInput
                       ref={(el) => {
                         inputs.current[key] = el;
                       }}
                       value={answers[key] || ''}
-                      editable={!readOnly}
-                      placeholder={readOnly && !answers[key] ? '(bỏ trống)' : undefined}
                       onChangeText={(v) => onChange(key, v)}
                       onSubmitEditing={() => inputs.current[blankKeys[blankKeys.indexOf(key) + 1]]?.focus()}
                       returnKeyType="next"
@@ -218,8 +233,13 @@ export function CodeSwitchExam({
                       autoCorrect={false}
                       spellCheck={false}
                       accessibilityLabel={`Chỗ trống ${blankKeys.indexOf(key) + 1}`}
-                      className={`h-8 border-b-2 px-1 text-center text-[15px] font-semibold ${STATE_INPUT[state]} ${lit ? 'bg-brand-soft' : ''}`}
-                      style={{ minWidth: Math.max(8, width + 1) * 8.5 }}
+                      className={`h-8 border-b-2 px-1 py-0 text-center text-[15px] font-semibold ${STATE_INPUT[state]} ${lit ? 'bg-brand-soft' : ''}`}
+                      // Rộng theo độ dài đáp án như web (ch) nhưng không quá ~3/4 dòng, khỏi đẩy cả loa xuống dòng riêng
+                      style={{
+                        width: Math.min(Math.max(8, width + 1) * 7.5, 230),
+                        includeFontPadding: false,
+                        textAlignVertical: 'center',
+                      }}
                     />
                     {state === 'ok' ? <Ionicons name="checkmark" size={15} color={success} /> : null}
                     {(state === 'bad' || state === 'near') && blank.en ? (
@@ -267,9 +287,7 @@ export function TranslateExam({
   const brand = useThemeColor('brand');
   return (
     <View className="gap-3">
-      <Requirement>
-        Dịch các câu sau sang tiếng Việt. Câu được tính đúng khi bạn dịch đúng nghĩa cụm tô đậm — phần còn lại dịch theo cách của bạn.
-      </Requirement>
+      <Requirement>Dịch các câu sau sang tiếng Việt. Câu được tính đúng khi bạn dịch đúng nghĩa cụm tô đậm — phần còn lại dịch theo cách của bạn.</Requirement>
       {items.map((item, i) => {
         const result = results?.[i];
         return (
@@ -279,32 +297,45 @@ export function TranslateExam({
               <KwText text={item.en} className="flex-1 text-[15px] leading-6 text-foreground" />
               {item.audioEn ? <SpeakButton active={audio.playingKey === `tr-en-${i}`} onPress={() => audio.toggle(item.audioEn, `tr-en-${i}`)} /> : null}
             </View>
-            <TextInput
-              value={answers[i] || ''}
-              editable={!readOnly}
-              onChangeText={(v) => onChange(String(i), v)}
-              multiline
-              placeholder={readOnly ? '(bỏ trống)' : 'Bản dịch của bạn...'}
-              placeholderTextColor={muted}
-              className={`min-h-[64px] rounded-xl border bg-background px-3 py-2 text-[14.5px] text-foreground ${
-                result === undefined ? 'border-border' : result ? 'border-success' : 'border-danger'
-              }`}
-              style={{ textAlignVertical: 'top' }}
-            />
-            {result !== undefined ? (
-              <View className="gap-1 rounded-xl bg-surface-muted p-3">
-                <Text className={`text-[11.5px] font-bold ${result ? 'text-success' : 'text-danger'}`}>
-                  {result ? 'Đạt — đã dịch đúng cụm tô đậm' : 'Chưa đạt — so với đáp án gợi ý'}
-                </Text>
-                {!result && notes?.[i] ? <Text className="text-[12.5px] text-foreground">{notes[i]}</Text> : null}
-                <View className="flex-row items-start gap-2">
-                  <KwText text={item.vi} className="flex-1 text-[13.5px] leading-5 text-foreground" />
-                  {item.audioVi ? <SpeakButton active={audio.playingKey === `tr-vi-${i}`} onPress={() => audio.toggle(item.audioVi, `tr-vi-${i}`)} /> : null}
+            {readOnly ? (
+              // Đã nộp / GV xem: bài dịch là chữ thường; bỏ trống thì ẩn hẳn, chỉ còn khối kết quả bên dưới
+              // ("Bạn chưa dịch câu này" + đáp án gợi ý) — anh chốt 06/11/2026
+              answers[i]?.trim() ? (
+                <View className={`rounded-xl border bg-background px-3 py-2 ${result === undefined ? 'border-border' : result ? 'border-success' : 'border-danger'}`}>
+                  <Text className="text-[14.5px] leading-6 text-foreground">{answers[i].trim()}</Text>
                 </View>
+              ) : null
+            ) : (
+              <TextInput
+                value={answers[i] || ''}
+                onChangeText={(v) => onChange(String(i), v)}
+                multiline
+                placeholder="Bản dịch của bạn..."
+                placeholderTextColor={muted}
+                className={`min-h-[64px] rounded-xl border bg-background px-3 py-2 text-[14.5px] text-foreground ${
+                  result === undefined ? 'border-border' : result ? 'border-success' : 'border-danger'
+                }`}
+                style={{ textAlignVertical: 'top' }}
+              />
+            )}
+            {/* Nút nghe đáp án đặt NGOÀI khối xám, cùng cột với nút nghe câu đề ở trên — để trong khối thì lệch
+                vào 12px so với nút trên (anh báo 06/11/2026) */}
+            {result !== undefined ? (
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1 gap-1 rounded-xl bg-surface-muted p-3">
+                  <Text className={`text-[11.5px] font-bold ${result ? 'text-success' : 'text-danger'}`}>
+                    {result ? 'Đạt — đã dịch đúng cụm tô đậm' : 'Chưa đạt — so với đáp án gợi ý'}
+                  </Text>
+                  {!result && notes?.[i] ? <Text className="text-[12.5px] text-foreground">{notes[i]}</Text> : null}
+                  <KwText text={item.vi} className="text-[13.5px] leading-5 text-foreground" />
+                </View>
+                {item.audioVi ? <SpeakButton active={audio.playingKey === `tr-vi-${i}`} onPress={() => audio.toggle(item.audioVi, `tr-vi-${i}`)} /> : null}
               </View>
             ) : onReveal && revealed?.has(i) ? (
-              <View className="flex-row items-start gap-2 rounded-xl bg-surface-muted p-3">
-                <KwText text={item.vi} className="flex-1 text-[13.5px] leading-5 text-foreground" />
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1 rounded-xl bg-surface-muted p-3">
+                  <KwText text={item.vi} className="text-[13.5px] leading-5 text-foreground" />
+                </View>
                 {item.audioVi ? <SpeakButton active={audio.playingKey === `tr-vi-${i}`} onPress={() => audio.toggle(item.audioVi, `tr-vi-${i}`)} /> : null}
               </View>
             ) : onReveal ? (
@@ -365,7 +396,10 @@ export function GapFillExam({
           {bank.map((chip, i) => {
             const isUsed = used.has(normalizeChip(chip));
             return (
-              <Pressable key={i} onPress={() => pickChip(chip)} className={`rounded-full border px-3 py-1 ${isUsed ? 'border-border bg-surface-muted opacity-50' : 'border-brand bg-brand-soft'}`}>
+              <Pressable
+                key={i}
+                onPress={() => pickChip(chip)}
+                className={`rounded-full border px-3 py-1 ${isUsed ? 'border-border bg-surface-muted opacity-50' : 'border-brand bg-brand-soft'}`}>
                 <Text className={`text-[13px] font-semibold ${isUsed ? 'text-muted line-through' : 'text-brand'}`}>{chip}</Text>
               </Pressable>
             );
@@ -389,25 +423,34 @@ export function GapFillExam({
                       {w}
                     </Text>
                   ))}
-                <TextInput
-                  ref={(el) => {
-                    inputs.current[i] = el;
-                  }}
-                  value={answers[i] || ''}
-                  editable={!readOnly}
-                  placeholder={readOnly && !answers[i] ? '(bỏ trống)' : undefined}
-                  onChangeText={(v) => onChange(String(i), v)}
-                  onFocus={() => setFocused(i)}
-                  onSubmitEditing={() => inputs.current[i + 1]?.focus()}
-                  returnKeyType="next"
-                  submitBehavior="submit"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  accessibilityLabel={`Chỗ trống câu ${i + 1}`}
-                  className={`mr-1 h-8 border-b-2 px-1 text-center text-[15px] font-semibold ${STATE_INPUT[state]}`}
-                  style={{ minWidth: Math.max(12, (item.length || item.answer.length) + 2) * 8 }}
-                />
+                {readOnly ? (
+                  <View className="mr-1 max-w-full">
+                    {/* Đáp án chuẩn đã có ở dòng dưới — ô này chỉ hiện bài làm */}
+                    <ReadOnlyBlank value={answers[i] || ''} state={state} />
+                  </View>
+                ) : (
+                  <TextInput
+                    ref={(el) => {
+                      inputs.current[i] = el;
+                    }}
+                    value={answers[i] || ''}
+                    onChangeText={(v) => onChange(String(i), v)}
+                    onFocus={() => setFocused(i)}
+                    onSubmitEditing={() => inputs.current[i + 1]?.focus()}
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    accessibilityLabel={`Chỗ trống câu ${i + 1}`}
+                    className={`mr-1 h-8 border-b-2 px-1 py-0 text-center text-[15px] font-semibold ${STATE_INPUT[state]}`}
+                    style={{
+                      width: Math.min(Math.max(12, (item.length || item.answer.length) + 2) * 7.5, 230),
+                      includeFontPadding: false,
+                      textAlignVertical: 'center',
+                    }}
+                  />
+                )}
                 {(after || '')
                   .split(/\s+/)
                   .filter(Boolean)
@@ -429,6 +472,36 @@ export function GapFillExam({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * Ô trống ở chế độ chỉ đọc (đã nộp / giáo viên xem): vẽ bằng chữ thay cho TextInput. Bản cũ để TextInput rỗng
+ * với placeholder "(bỏ trống)" — bị gạch ngang (class line-through của ô sai), cao lệch khỏi gạch chân, và
+ * rộng cố định theo đáp án nên mỗi ô chiếm nguyên 1 dòng (anh báo 06/11/2026).
+ *   đúng: bài làm xanh + ✓ · gần đúng: bài làm vàng + "≈ đáp án" · sai: bài làm đỏ gạch ngang + đáp án xanh
+ *   · bỏ trống: gạch chân trống (đỏ nếu đã chấm) + đáp án xanh. `answer` không truyền = đáp án đã hiện chỗ khác.
+ */
+function ReadOnlyBlank({ value, state, answer }: { value: string; state: BlankState; answer?: string }) {
+  const success = useThemeColor('success');
+  const v = value.trim();
+  const line = state === 'ok' ? 'border-success' : state === 'near' ? 'border-warning' : state === 'bad' ? 'border-danger' : 'border-muted';
+  const text = state === 'ok' ? 'text-success' : state === 'near' ? 'text-warning' : state === 'bad' ? 'text-danger line-through' : 'text-brand';
+  return (
+    <View className="max-w-full flex-row flex-wrap items-center gap-x-1">
+      {v ? (
+        <View className={`max-w-full border-b-2 px-0.5 ${line}`}>
+          <Text className={`text-[15px] font-semibold leading-7 ${text}`}>{v}</Text>
+        </View>
+      ) : (
+        // Bỏ trống: chỉ 1 gạch chân trống như chỗ trống trong sách (anh chốt 06/11/2026, không ghi chữ "bỏ trống")
+        <View accessibilityLabel="Bỏ trống" className={`h-6 w-16 border-b-2 ${line}`} />
+      )}
+      {state === 'ok' && v ? <Ionicons name="checkmark" size={15} color={success} /> : null}
+      {(state === 'bad' || state === 'near') && answer ? (
+        <Text className={`text-[14.5px] font-bold leading-7 ${state === 'near' ? 'text-warning' : 'text-success'}`}>{state === 'near' ? `≈ ${answer}` : answer}</Text>
+      ) : null}
     </View>
   );
 }

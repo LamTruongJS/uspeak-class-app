@@ -10,7 +10,24 @@ import { plainContent } from './format';
 import type { ChatMessage } from './types';
 import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 
-export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+/**
+ * Bộ cảm xúc nhanh — PHẢI nằm trong VALID_EMOJIS của class-be (chat.service.ts toggleReaction), cùng
+ * thứ tự REACTIONS của web (class-fe chat/MessagePopovers.tsx). Bản cũ có 😮 😢 🙏: server từ chối
+ * "Emoji không hợp lệ" mà app nuốt lỗi → "thả không được" (05/11/2026).
+ */
+export const QUICK_REACTIONS = ['😀', '🔥', '😂', '❤️', '🤩', '👍'];
+
+/** Cảm xúc kiểu cũ server còn lưu dạng mã (like, haha…) — hiện ra emoji như LEGACY_REACTION_EMOJI của web. */
+const LEGACY_REACTION_EMOJI: Record<string, string> = {
+  like: '👍',
+  heart: '❤️',
+  care: '🥰',
+  haha: '😂',
+  wow: '😮',
+  sad: '😢',
+  angry: '😡',
+};
+export const reactionGlyph = (emoji: string) => LEGACY_REACTION_EMOJI[emoji] ?? emoji;
 
 /** Loại tin chuyển tiếp được — khớp FORWARDABLE_TYPES của class-be chat.service.ts */
 const FORWARDABLE = new Set(['text', 'image', 'video', 'file', 'sticker', 'voice']);

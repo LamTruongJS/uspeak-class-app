@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { CLASS_REPORT_3D_ICONS } from '@/constants/three-d-icons';
-import { isNoGrading, type StudentAssignmentItem } from '@/features/assignments/api';
+import { Badge } from '@/components/ui/badge';
+import { getAssignmentStatusView, isAutoScored, isNoGrading, type StudentAssignmentItem } from '@/features/assignments/api';
 import { assignmentScore10, formatScore } from '@/features/dashboard/student-metrics';
 
 import { summarizeAttendance, type AttendanceSession } from './api';
@@ -26,7 +27,10 @@ export function computeClassReport(assignments: StudentAssignmentItem[]) {
   // Bài không cần chấm đứng riêng: gộp vào "Đã nhận xét" là nói sai (không ai chấm),
   // gộp vào "Đã nộp" thì bị đếm hai lần vì status của nó cũng là completed.
   const noGrading = assignments.filter(isNoGrading).length;
-  const completed = assignments.filter((a) => !isNoGrading(a) && (a.student_status === 'graded' || status(a) === 'completed')).length;
+  const isDone = (a: StudentAssignmentItem) => !isNoGrading(a) && (a.student_status === 'graded' || status(a) === 'completed');
+  // Bài máy tự chấm (TVST đi làm) đã có điểm — tách khỏi "Đã nhận xét" vì không giáo viên nào nhận xét
+  const autoScored = assignments.filter((a) => isAutoScored(a) && isDone(a)).length;
+  const completed = assignments.filter((a) => !isAutoScored(a) && isDone(a)).length;
   const submitted = assignments.filter(
     (a) => !isNoGrading(a) && (a.student_status === 'submitted' || ['submitted', 'claimed', 'waiting_review'].includes(status(a))),
   ).length;
@@ -38,10 +42,10 @@ export function computeClassReport(assignments: StudentAssignmentItem[]) {
   const averageScore = scores.length ? Number((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1)) : null;
 
   // Bài không cần chấm vẫn tính là đã hoàn thành — học viên có nộp, chỉ là không ai chấm.
-  const completionRate = total > 0 ? Math.round(((completed + noGrading) / total) * 100) : 0;
-  const submissionRate = total > 0 ? Math.round(((completed + noGrading + submitted) / total) * 100) : 0;
+  const completionRate = total > 0 ? Math.round(((completed + autoScored + noGrading) / total) * 100) : 0;
+  const submissionRate = total > 0 ? Math.round(((completed + autoScored + noGrading + submitted) / total) * 100) : 0;
 
-  return { total, completed, noGrading, submitted, late, redo, notDone, averageScore, completionRate, submissionRate };
+  return { total, completed, autoScored, noGrading, submitted, late, redo, notDone, averageScore, completionRate, submissionRate };
 }
 
 export type ClassReport = ReturnType<typeof computeClassReport>;
@@ -69,6 +73,7 @@ export function ClassReportView({
 
   const breakdown = [
     { label: 'Đã nhận xét', value: report.completed, bar: 'bg-success', text: 'text-success' },
+    { label: 'Đã chấm điểm tự động', value: report.autoScored, bar: 'bg-success', text: 'text-success' },
     { label: 'Không cần chấm', value: report.noGrading, bar: 'bg-violet', text: 'text-violet' },
     { label: 'Chờ nhận xét', value: report.submitted, bar: 'bg-info', text: 'text-info' },
     { label: 'Nộp trễ', value: report.late, bar: 'bg-warning', text: 'text-warning' },
@@ -108,26 +113,40 @@ export function ClassReportView({
 
       <Card title="Điểm từng bài tập" icon3d={CLASS_REPORT_3D_ICONS.assignmentScores}>
         {assignments.length ? (
-          assignments.map((a, index) => {
-            const score = assignmentScore10(a);
-            const tone = scoreTone(score);
-            return (
-              <View key={a._id} className="gap-1">
-                <View className="flex-row items-baseline justify-between gap-2">
-                  <Text className="flex-1 text-[13px] text-foreground" numberOfLines={1}>
-                    <Text className="font-semibold text-muted">BT {index + 1} · </Text>
-                    {a.title}
-                  </Text>
-                  <Text className={`text-[13px] font-bold ${tone.text}`}>
-                    {score === null ? (isNoGrading(a) ? 'Không cần chấm' : '—') : formatScore(score)}
-                  </Text>
+          <View>
+            {/* Mỗi bài 1 hàng: số thứ tự · tên (tối đa 2 dòng, bản cũ cắt 1 dòng mất phần "Bài tập STEP 4–6") ·
+              bên phải là điểm /10 (có thanh điểm bên dưới) hoặc nhãn trạng thái khi chưa có điểm. */}
+            {assignments.map((a, index) => {
+              const score = assignmentScore10(a);
+              const tone = scoreTone(score);
+              const view = getAssignmentStatusView(a);
+              return (
+                <View key={a._id} className={`gap-2 py-2.5 ${index ? 'border-t border-border' : ''}`}>
+                  <View className="flex-row items-center gap-2.5">
+                    <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-muted">
+                      <Text className="text-[11.5px] font-bold text-muted">{index + 1}</Text>
+                    </View>
+                    <Text className="flex-1 text-[13.5px] leading-5 text-foreground" numberOfLines={2}>
+                      {a.title}
+                    </Text>
+                    {score === null ? (
+                      <Badge label={view.label} tone={view.tone} />
+                    ) : (
+                      <Text className={`text-[17px] font-black ${tone.text}`}>
+                        {formatScore(score)}
+                        <Text className="text-[11.5px] font-semibold text-muted">/10</Text>
+                      </Text>
+                    )}
+                  </View>
+                  {score !== null ? (
+                    <View className="ml-[38px] h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                      <View className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.max(2, (score / 10) * 100)}%` }} />
+                    </View>
+                  ) : null}
                 </View>
-                <View className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                  <View className={`h-full rounded-full ${tone.bar}`} style={{ width: `${((score ?? 0) / 10) * 100}%` }} />
-                </View>
-              </View>
-            );
-          })
+              );
+            })}
+          </View>
         ) : (
           <Text className="text-[13px] text-muted">Chưa có bài tập nào để tính điểm.</Text>
         )}

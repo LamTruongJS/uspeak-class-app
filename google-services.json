@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "70396227652",
+    "project_id": "uspeak-aab0e",
+    "storage_bucket": "uspeak-aab0e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:70396227652:android:a425a7617c372f997fcc11",
+        "android_client_info": {
+          "package_name": "vn.uspeak.classapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHoglJKLRVyWiLWWpJAvT6mvnl4GmnEHw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:70396227652:android:9e3857c3b164c5a67fcc11",
+        "android_client_info": {
+          "package_name": "vn.uspeak.task"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHoglJKLRVyWiLWWpJAvT6mvnl4GmnEHw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

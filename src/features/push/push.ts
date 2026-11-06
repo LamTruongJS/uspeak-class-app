@@ -1,121 +1,43 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
-import * as Device from 'expo-device';
 import type * as NotificationsModule from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState } from 'react-native';
 
 import { activeRoom } from '@/features/chat/active-room';
-import { useUnreadTotal } from '@/features/chat/api';
-import { useInvalidateNotifications } from '@/features/notifications/api';
-import { api } from '@/lib/api/client';
+import { useUnreadRoomKey, useUnreadTotal } from '@/features/chat/api';
+import { useInvalidateNotifications, useUnreadNotificationCount } from '@/features/notifications/api';
+
+import { dismissByTags, readPayload } from './background';
+import { Notifications, registerForPush, watchPushToken } from './push-token';
+
+export { unregisterPush } from './push-token';
 
 /**
- * Thông báo đẩy (push) qua Expo Push Service — class-be gửi ở `ExpoPushService`
+ * Thông báo đẩy (push) — class-be gửi ở `ExpoPushService` (iOS qua Expo Push, Android thẳng FCM)
  * (uspeak-class-be/src/push/expo-push.service.ts) tại đúng các điểm Web Push đang gửi
  * (tin chat, thông báo phòng) + thông báo trong app (bài mới, đã chấm, yêu cầu làm lại).
  *
- * data trong push:
+ * data trong push (kèm `tag`: `chat:<roomId>` | `chat-announcement:<id>` | `noti:<related_id>`):
  *  - { kind: 'chat', room_id }                        → mở phòng chat
  *  - { kind: 'notification', related_type, related_id } → 'assignment' mở bài, 'submission' mở kết quả
+ *
+ * Đọc ở web/máy khác → push ngầm, xử lý ở background.ts. Nút Trả lời / Đã đọc cũng ở background.ts.
  */
-
-const TOKEN_KEY = 'uspeak.pushToken';
-
-/**
- * Expo Go trên Android (từ SDK 53) ném lỗi NGAY KHI IMPORT expo-notifications → làm sập cả app.
- * Nên chỉ nạp module khi chạy được: bản build thật / development build, hoặc Expo Go trên iPhone.
- */
-const PUSH_SUPPORTED = !(Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient);
-const Notifications: typeof NotificationsModule | null = PUSH_SUPPORTED
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (require('expo-notifications') as typeof NotificationsModule)
-  : null;
 
 // App đang mở mà nhận push: đang xem đúng phòng đó thì im lặng (tin đã hiện trong luồng chat),
-// còn lại vẫn hiện banner như Zalo/Messenger.
+// push ngầm "đã đọc" cũng không hiện; còn lại vẫn hiện banner như Zalo/Messenger.
 Notifications?.setNotificationHandler({
   handleNotification: async (n) => {
-    const roomId = n.request.content.data?.room_id;
+    const data = readPayload(n.request.content.data);
+    const roomId = data.room_id;
     const viewingRoom = !!roomId && roomId === activeRoom.id && AppState.currentState === 'active';
-    return {
-      shouldShowBanner: !viewingRoom,
-      shouldShowList: !viewingRoom,
-      shouldPlaySound: !viewingRoom,
-      shouldSetBadge: true,
-    };
+    const hide = data.type === 'sync' || viewingRoom;
+    return { shouldShowBanner: !hide, shouldShowList: !hide, shouldPlaySound: !hide, shouldSetBadge: !hide };
   },
 });
 
-/** Android 8+ bắt buộc có kênh; server gửi channelId 'chat' | 'general'. */
-async function ensureAndroidChannels() {
-  if (Platform.OS !== 'android' || !Notifications) return;
-  await Notifications.setNotificationChannelAsync('chat', {
-    name: 'Tin nhắn',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 200, 120, 200],
-    lightColor: '#b62025',
-  });
-  await Notifications.setNotificationChannelAsync('general', {
-    name: 'Bài tập & thông báo',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
-}
-
-function projectId(): string | undefined {
-  return (Constants.expoConfig?.extra?.eas?.projectId as string | undefined) ?? Constants.easConfig?.projectId;
-}
-
-/**
- * Xin quyền + lấy Expo push token + gửi lên class-be. Gọi lại mỗi lần mở app là bình thường
- * (server upsert theo token) — token có thể đổi sau khi cài lại app / khôi phục máy.
- */
-export async function registerForPush(): Promise<string | null> {
-  try {
-    if (!Notifications) return null; // Expo Go Android — cần development build
-    if (!Device.isDevice) return null; // máy ảo iOS không nhận push
-
-    await ensureAndroidChannels();
-    let { status } = await Notifications.getPermissionsAsync();
-    if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
-    if (status !== 'granted') return null;
-
-    const pid = projectId();
-    if (!pid) {
-      console.warn('[push] Chưa có extra.eas.projectId — chạy `npx eas-cli init` để bật thông báo đẩy.');
-      return null;
-    }
-    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: pid });
-    await api.post('/push/mobile-token', {
-      token,
-      platform: Platform.OS,
-      device_name: Device.deviceName ?? Device.modelName ?? null,
-      app_version: Constants.expoConfig?.version ?? null,
-    });
-    await AsyncStorage.setItem(TOKEN_KEY, token);
-    return token;
-  } catch (err) {
-    console.warn('[push] Đăng ký thông báo thất bại:', err);
-    return null;
-  }
-}
-
-/** Gọi TRƯỚC khi xoá phiên đăng nhập (cần access token để server biết token của ai). */
-export async function unregisterPush() {
-  try {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
-    if (token) await api.delete('/push/mobile-token', { data: { token } });
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await Notifications?.setBadgeCountAsync(0);
-  } catch {
-    // Mất mạng lúc đăng xuất: token sẽ bị gỡ khi máy đăng nhập tài khoản khác (server upsert theo token).
-  }
-}
-
 /** Mở đúng màn theo data của thông báo. */
-function openFromPush(data: Record<string, unknown> | undefined) {
-  if (!data) return;
+function openFromPush(data: Record<string, unknown>) {
   if (data.kind === 'chat' && typeof data.room_id === 'string') {
     router.push({ pathname: '/chat/[roomId]', params: { roomId: data.room_id } });
     return;
@@ -134,11 +56,33 @@ function createPushBridge(Notifications: typeof NotificationsModule) {
     const lastResponse = Notifications.useLastNotificationResponse();
     const handled = useRef<string | null>(null);
     const unread = useUnreadTotal();
+    const unreadRooms = useUnreadRoomKey();
+    const notifUnread = useUnreadNotificationCount().data ?? 0;
     const refreshNotifications = useInvalidateNotifications();
+    const prevRooms = useRef<string | null>(null);
+    const prevNotif = useRef(0);
 
     useEffect(() => {
       void registerForPush();
+      return watchPushToken();
     }, []);
+
+    // Đọc xong 1 phòng ngay trong app → gỡ thông báo của phòng đó khỏi khay (đọc ở nơi khác thì
+    // server gửi push ngầm, background.ts gỡ). Chỉ gỡ phòng vừa CHUYỂN từ chưa đọc → đã đọc, không
+    // quét tất cả: thông báo mới có thể tới trước khi danh sách phòng kịp cập nhật.
+    useEffect(() => {
+      const prev = prevRooms.current;
+      prevRooms.current = unreadRooms;
+      if (prev === null) return;
+      const now = new Set(unreadRooms.split(',').filter(Boolean));
+      const read = prev.split(',').filter((id) => id && !now.has(id));
+      if (read.length) void dismissByTags(read.map((id) => `chat:${id}`)).catch(() => undefined);
+    }, [unreadRooms]);
+
+    useEffect(() => {
+      if (prevNotif.current > 0 && notifUnread === 0) void dismissByTags(['noti:*']).catch(() => undefined);
+      prevNotif.current = notifUnread;
+    }, [notifUnread]);
 
     // Bấm thông báo — kể cả khi app đang tắt hẳn (cold start) — chỉ xử lý mỗi thông báo 1 lần.
     useEffect(() => {
@@ -146,21 +90,22 @@ function createPushBridge(Notifications: typeof NotificationsModule) {
       const id = lastResponse.notification.request.identifier;
       if (handled.current === id) return;
       handled.current = id;
-      openFromPush(lastResponse.notification.request.content.data as Record<string, unknown>);
+      openFromPush(readPayload(lastResponse.notification.request.content.data));
     }, [lastResponse]);
 
     // Thông báo hệ thống (không phải chat) tới khi đang mở app → làm mới chuông ngay, khỏi chờ 30 giây
     useEffect(() => {
       const sub = Notifications.addNotificationReceivedListener((n) => {
-        const data = n.request.content.data as Record<string, unknown> | undefined;
-        if (data?.kind !== 'chat') void refreshNotifications();
+        const data = readPayload(n.request.content.data);
+        if (data.type !== 'sync' && data.kind !== 'chat') void refreshNotifications();
       });
       return () => sub.remove();
     }, [refreshNotifications]);
 
     // Số trên icon app = tổng tin chat chưa đọc (bỏ phòng đã tắt thông báo) — giống badge server gửi.
+    // Tối đa 99: iOS chỉ hiện được số, không có "99+".
     useEffect(() => {
-      void Notifications.setBadgeCountAsync(unread).catch(() => undefined);
+      void Notifications.setBadgeCountAsync(Math.min(99, unread)).catch(() => undefined);
     }, [unread]);
 
     return null;

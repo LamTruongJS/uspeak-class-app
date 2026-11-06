@@ -4,6 +4,8 @@ import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatDateTime } from '@/lib/format';
+import { useCSSVariable } from 'uniwind';
+
 import { useThemeColor } from '@/theme/use-theme-color';
 
 import { usePinnedMessages } from './api';
@@ -27,7 +29,7 @@ function preview(m: ChatMessage) {
 export function PinnedBar({ roomId, onJump }: { roomId: string; onJump: (messageId: string) => void }) {
   const { data } = usePinnedMessages(roomId);
   const [listOpen, setListOpen] = useState(false);
-  const brand = useThemeColor('brand');
+  const pin = String(useCSSVariable('--color-pin') ?? '#ff7d00');
   const muted = useThemeColor('muted');
   const insets = useSafeAreaInsets();
   if (!data?.length) return null;
@@ -38,9 +40,14 @@ export function PinnedBar({ roomId, onJump }: { roomId: string; onJump: (message
       {/* Một dòng thôi: hai dòng (nhãn + nội dung) ăn mất chỗ của tin nhắn, mà nội dung ghim hay là
           một cái link dài nên dòng thứ hai cũng chỉ hiện được vài chữ rồi "…" */}
       <View className="flex-row items-center gap-2 border-b border-border bg-surface px-3 py-2">
-        <AppIcon name="pushpin" size={15} color={brand} />
+        {/* Cam như web (--chat-pin-color / --chat-pin-bg, 04/11/2026) */}
+        <View className="h-7 w-7 items-center justify-center rounded-lg bg-pin-soft">
+          <AppIcon name="pushpin" size={14} color={pin} />
+        </View>
         <Pressable className="flex-1 flex-row items-center gap-1.5 active:opacity-70" onPress={() => onJump(top._id)}>
-          <Text className="text-[12.5px] font-semibold text-brand">Đã ghim{data.length > 1 ? ` (${data.length})` : ''}</Text>
+          <View className="rounded-full bg-pin-soft px-2 py-0.5">
+            <Text className="text-[11px] font-bold text-pin">Đã ghim{data.length > 1 ? ` (${data.length})` : ''}</Text>
+          </View>
           <Text className="flex-1 text-[13px] text-muted" numberOfLines={1}>
             {preview(top)}
           </Text>

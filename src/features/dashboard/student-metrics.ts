@@ -1,4 +1,4 @@
-import type { StudentAssignmentItem } from '@/features/assignments/api';
+import { isAutoScored, type StudentAssignmentItem } from '@/features/assignments/api';
 import type { StudentClassItem } from '@/features/classes/api';
 import type { ScheduleClassItem } from '@/features/schedule/api';
 
@@ -53,7 +53,8 @@ export function formatDeadline(dateStr: string | null | undefined, now: number):
 
 /** Điểm quy về thang 10. Bài không cần chấm → null (không thì kéo tụt điểm TB). */
 export function assignmentScore10(item: StudentAssignmentItem): number | null {
-  if (item.requires_grading === false || item.submission?.grading_exempt === true) return null;
+  // Bài tự chấm (TVST đi làm) có requires_grading=false nhưng vẫn có điểm thật
+  if ((item.requires_grading === false && !isAutoScored(item)) || item.submission?.grading_exempt === true) return null;
   const score = item.submission?.score;
   const max = item.submission?.max_score;
   if (typeof score !== 'number') return null;

@@ -19,7 +19,7 @@ export interface YoutubePlayerHandle {
   pause: () => void;
 }
 
-const html = (videoId: string, start: number) => `<!doctype html><html><head>
+const html = (videoId: string, start: number, autoPlay: boolean) => `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}#p{position:absolute;inset:0;width:100%;height:100%}</style>
 </head><body><div id="p"></div>
@@ -30,7 +30,7 @@ function send(o){ window.ReactNativeWebView && window.ReactNativeWebView.postMes
 function onYouTubeIframeAPIReady(){
   player = new YT.Player('p', {
     videoId: ${JSON.stringify(videoId)},
-    playerVars: { playsinline: 1, rel: 0, modestbranding: 1, start: ${Math.floor(start)} },
+    playerVars: { playsinline: 1, rel: 0, modestbranding: 1, fs: 0, autoplay: ${autoPlay ? 1 : 0}, start: ${Math.floor(start)} },
     events: {
       onReady: function(){ send({ type: 'ready', duration: player.getDuration() }); },
       onStateChange: function(e){ send({ type: 'state', state: e.data }); }
@@ -60,8 +60,11 @@ export const YoutubePlayer = forwardRef<
     onTime?: (seconds: number) => void;
     /** 1 = đang phát, 2 = tạm dừng, 0 = hết (mã của YT.PlayerState) */
     onState?: (state: number) => void;
+    /** Phủ kín khung cha (màn xem toàn màn hình) thay vì khung 16:9 */
+    fill?: boolean;
+    autoPlay?: boolean;
   }
->(function YoutubePlayer({ videoId, start = 0, onTime, onState }, ref) {
+>(function YoutubePlayer({ videoId, start = 0, onTime, onState, fill, autoPlay = false }, ref) {
   const web = useRef<WebView>(null);
   const run = (cmd: object) => web.current?.injectJavaScript(`window.__cmd(${JSON.stringify(cmd)}); true;`);
 
@@ -82,12 +85,12 @@ export const YoutubePlayer = forwardRef<
   };
 
   return (
-    <View style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }}>
+    <View style={fill ? { flex: 1, backgroundColor: '#000' } : { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }}>
       <WebView
         // Đổi video → dựng lại player từ đầu (giống web destroy/new YT.Player)
         key={videoId}
         ref={web}
-        source={{ html: html(videoId, start), baseUrl: WEB_URL }}
+        source={{ html: html(videoId, start, autoPlay), baseUrl: WEB_URL }}
         originWhitelist={['*']}
         onMessage={onMessage}
         style={{ flex: 1, backgroundColor: '#000' }}

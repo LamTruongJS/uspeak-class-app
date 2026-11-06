@@ -100,7 +100,7 @@ export function IssueReportSheet({ roomId, message, onClose }: { roomId: string;
         message: text,
         type,
         images,
-        browser: `Uspeak Class App · ${Platform.OS} ${Platform.Version}`,
+        browser: `Uspeak Academy App · ${Platform.OS} ${Platform.Version}`,
       });
       showToast('success', 'Đã lưu báo cáo', 'Quản trị viên sẽ xem và xử lý vấn đề này.');
       onClose();

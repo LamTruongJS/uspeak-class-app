@@ -1,0 +1,2 @@
+# patch-package áp bản vá trên máy build Linux (EAS) — giữ LF, CRLF làm hỏng bản vá
+patches/*.patch text eol=lf

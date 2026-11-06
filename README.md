@@ -1,4 +1,4 @@
-# Uspeak Class — app mobile (iOS + Android)
+# Uspeak Academy — app mobile (iOS + Android)
 
 App native cho hệ thống lớp học Uspeak, viết bằng **Expo (SDK 57) + React Native + TypeScript**.
 Dùng chung backend với web: `uspeak-class-be` (prod: `https://class.uspeak.vn/api`).

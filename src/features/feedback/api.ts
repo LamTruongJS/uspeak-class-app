@@ -140,7 +140,7 @@ export function useSubmitFeedback() {
         userName: input.userName ?? '',
         // Web gửi URL trang đang mở + tên trình duyệt; app gửi tên app + hệ điều hành để admin biết nguồn.
         currentUrl: 'app://uspeak-class-app',
-        browser: `Uspeak Class App · ${Platform.OS} ${Platform.Version}`,
+        browser: `Uspeak Academy App · ${Platform.OS} ${Platform.Version}`,
         createdAt: new Date().toISOString(),
         ...(images.length ? { images } : {}),
       });

@@ -1,0 +1,33 @@
+diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/model/RemoteNotificationContent.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/model/RemoteNotificationContent.kt
+index cdbc237..7277c27 100644
+--- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/model/RemoteNotificationContent.kt
++++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/model/RemoteNotificationContent.kt
+@@ -2,6 +2,7 @@ package expo.modules.notifications.notifications.model
+ 
+ import android.content.Context
+ import android.graphics.Bitmap
++import android.net.Uri
+ import android.os.Parcel
+ import android.os.Parcelable
+ import com.google.firebase.messaging.RemoteMessage
+@@ -22,13 +23,17 @@ class RemoteNotificationContent(private val remoteMessage: RemoteMessage) : INot
+ 
+   private val notificationData = NotificationData(remoteMessage.data)
+ 
++  // Uspeak: FCM data-only (app tự vẽ) không có notification.imageUrl → nhận thêm khoá data "largeIcon"
++  // (ảnh người gửi) do chat-task-be gửi. Xem patches/expo-notifications+*.patch.
++  private val imageUri: Uri?
++    get() = remoteMessage.notification?.imageUrl ?: remoteMessage.data["largeIcon"]?.let { Uri.parse(it) }
++
+   override suspend fun getImage(context: Context): Bitmap? {
+-    val uri = remoteMessage.notification?.imageUrl
+-    return uri?.let { downloadImage(it) }
++    return imageUri?.let { downloadImage(it) }
+   }
+ 
+   override fun containsImage(): Boolean {
+-    return remoteMessage.notification?.imageUrl != null
++    return imageUri != null
+   }
+ 
+   override val title = remoteMessage.notification?.title ?: notificationData.title

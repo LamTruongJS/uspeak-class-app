@@ -23,7 +23,12 @@
   },
   "submit": {
     "production": {
-      "android": { "track": "internal", "releaseStatus": "draft" }
+      "android": { "track": "internal", "releaseStatus": "draft" },
+      "ios": { "ascAppId": "6830437631", "appleTeamId": "L86L47JNX9",
+        "ascApiKeyPath": "C:/Users/PC/.apple-keys/asc-api-LA9KJ5VNL4.p8",
+        "ascApiKeyId": "LA9KJ5VNL4",
+        "ascApiKeyIssuerId": "d04efe0d-c3eb-436f-bf84-40369c8eb983"
+      }
     }
   }
 }

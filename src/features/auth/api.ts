@@ -59,7 +59,7 @@ export const authApi = {
 
   /** Thu hồi refresh token phía CRM. Lỗi mạng cũng bỏ qua — máy vẫn xoá phiên. */
   async logout(): Promise<void> {
-    const tokens = await tokenStorage.get();
+    const tokens = await tokenStorage.get().catch(() => null);
     if (!tokens?.refreshToken) return;
     await api.post('/auth/logout', { refreshToken: tokens.refreshToken }).catch(() => undefined);
   },

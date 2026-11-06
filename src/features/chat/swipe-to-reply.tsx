@@ -12,6 +12,12 @@ import type { ChatMessage } from './types';
 const TRIGGER = 56;
 /** Kéo tối đa (có lực cản sau ngưỡng) */
 const MAX = 90;
+/**
+ * Dải sát mép trái (px, tính từ mép MÀN HÌNH) dành cho cử chỉ vuốt-thoát-phòng của hệ thống: chạm bắt
+ * đầu trong dải này thì cử chỉ trả lời tự bỏ. Trước đây cả 2 cùng nhận → vuốt cạnh trái để ra hay
+ * dính thành trả lời tin (anh báo 06/11/2026). 44 ≈ dải vuốt-lùi của iOS + chỗ ngón cái hay đặt.
+ */
+const EDGE_RESERVED = 44;
 
 function hapticTick() {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -47,6 +53,10 @@ export function SwipeToReply({
     .activeOffsetX(12)
     .failOffsetX(-12)
     .failOffsetY([-10, 10])
+    .onTouchesDown((e, manager) => {
+      const t = e.allTouches[0];
+      if (t && t.absoluteX < EDGE_RESERVED) manager.fail();
+    })
     .onUpdate((e) => {
       const dx = Math.max(0, e.translationX);
       // Sau ngưỡng thì kéo nặng tay hơn (lực cản), không trượt mãi
